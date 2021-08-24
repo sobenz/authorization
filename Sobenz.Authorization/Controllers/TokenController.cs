@@ -49,19 +49,23 @@ namespace Sobenz.Authorization.Controllers
             if (client == null)
                 return new UnauthorizedObjectResult(new TokenResponseError { Error = TokenFailureError.UnauthorizedClient });
 
+            HttpStatusCode code;
+            ITokenResponse response = null;
+
             switch (tokenRequest.GrantType)
             {
                 case GrantType.ClientCredentials:
-                    var response = await _authorizationManager.GenerateApplicationAccessToken(client, tokenRequest.Scopes, tokenRequest.OrganisationId, out HttpStatusCode code, cancellationToken);
+                    response = await _authorizationManager.GenerateApplicationAccessTokenAsync(client, tokenRequest.Scopes, tokenRequest.OrganisationId, out code, cancellationToken);
+                    return StatusCode((int)code, response);
+                case GrantType.Password:
+                    response = await _authorizationManager.GenerateUserAccessTokenAsync(client, tokenRequest.Username, tokenRequest.Password, tokenRequest.Scopes, tokenRequest.OrganisationId, out code, cancellationToken);
+                    return StatusCode((int)code, response);
+                case GrantType.RefreshToken:
+                    response = await _authorizationManager.RefreshAccessTokenAsync(client, tokenRequest.RefreshToken, tokenRequest.Scopes, tokenRequest.OrganisationId, out code, cancellationToken);
                     return StatusCode((int)code, response);
                 default:
                     return BadRequest(new TokenResponseError { Error = TokenFailureError.InvalidGrant });
             }
-
-            //Switch on grant_type
-            //1. Validate Scope
-            //2. Generate Access Token and Refresh Token
-            return new OkObjectResult(tokenRequest);
         }
 
         private async Task<Application> ValidateClient(Guid clientId, string clientSecret, CancellationToken cancellationToken)

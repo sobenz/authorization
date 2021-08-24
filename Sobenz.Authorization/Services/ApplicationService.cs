@@ -78,5 +78,11 @@ namespace Sobenz.Authorization.Services
             }
             return Task.FromResult(result);
         }
+
+        public Task<Application> GetAsync(Guid clientId, CancellationToken cancellationToken = default)
+        {
+            Application result = _applications.FirstOrDefault(a => a.ClientId == clientId);
+            return Task.FromResult(result);
+        }
     }
 }

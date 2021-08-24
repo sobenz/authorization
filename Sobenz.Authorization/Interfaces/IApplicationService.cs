@@ -11,5 +11,6 @@ namespace Sobenz.Authorization.Interfaces
     {
         Task<Application> AuthenticateAsync(Guid clientId, CancellationToken cancellationToken = default);
         Task<Application> AuthenticateAsync(Guid clientId, string clientSecret, CancellationToken cancellationToken = default);
+        Task<Application> GetAsync(Guid clientId, CancellationToken cancellationToken = default);
     }
 }

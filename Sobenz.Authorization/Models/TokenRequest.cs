@@ -11,8 +11,18 @@ namespace Sobenz.Authorization.Models
     public enum GrantType
     {
         Unknown,
+
+        [EnumMember(Value = "authorization_code")]
+        AuthorizationCode,
+
         [EnumMember(Value = "client_credentials")]
-        ClientCredentials
+        ClientCredentials,
+
+        [EnumMember(Value = "password")]
+        Password,
+
+        [EnumMember(Value = "refresh_token")]
+        RefreshToken
     }
 
     public class TokenRequest
@@ -28,6 +38,18 @@ namespace Sobenz.Authorization.Models
         [JsonPropertyName("client_secret")]
         [BindProperty(Name = "client_secret", BinderType = typeof(ClientBinder))]
         public string ClientSecret { get; set; }
+
+        [JsonPropertyName("username")]
+        [BindProperty(Name = "username")]
+        public string Username { get; set; }
+
+        [JsonPropertyName("password")]
+        [BindProperty(Name = "password")]
+        public string Password { get; set; }
+
+        [JsonPropertyName("refresh_token")]
+        [BindProperty(Name = "refresh_token")]
+        public string RefreshToken { get; set; }
 
         [JsonPropertyName("scope")]
         [JsonConverter(typeof(SpaceDelimitedStringJsonConverter))]

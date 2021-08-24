@@ -1,0 +1,29 @@
+﻿@model Sobenz.Authorization.Models.AuthorizeRequest
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>Login</title>
+</head>
+<body>
+    <h3>Login Page</h3>
+    @ViewBag.error
+    <form method="post" asp-controller="authorize" asp-action="login" asp-route-response_type="@Model.ResponseType" asp-route-client_id="@Model.ClientId" asp-route-redirect_uri="@Model.RedirectUri"
+          asp-route-state="@Model.State" asp-route-code_challenge="@Model.CodeChallenge" asp-route-code_challenge_method="@Model.CodeChallengeMethod" asp-route-scope="@Model.Scopes.Aggregate((e,n) => $"{e} {n}")">
+        <table border="0" cellpadding="2" cellspacing="2">
+            <tr>
+                <td>Username</td>
+                <td><input type="text" name="username"></td>
+            </tr>
+            <tr>
+                <td>Password</td>
+                <td><input type="password" name="password"></td>
+            </tr>
+            <tr>
+                <td>&nbsp;</td>
+                <td><input type="submit" value="Login"></td>
+            </tr>
+        </table>
+        <input type="hidden" name="action" value="login" />
+    </form>
+</body>
+</html>

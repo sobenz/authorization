@@ -7,6 +7,9 @@ namespace Sobenz.Authorization.Models
     [JsonConverter(typeof(JsonStringEnumMemberConverter))]
     public enum TokenFailureError
     {
+        [EnumMember(Value = "access_denied")]
+        AccessDenied,
+
         [EnumMember(Value = "invalid_client")]
         InvalidClient,
 
