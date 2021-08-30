@@ -10,6 +10,7 @@ namespace Sobenz.Authorization.Models
         public Guid GrantingUserId { get; set; }
         public IEnumerable<string> GrantedScopes { get; set; }
         public string RedirectionUri { get; set; }
+        public string Nonce { get; set; }
         public string CodeChallenge { get; set; }
         public CodeChallengeMethod? CodeChallengeMethod { get; set; }
         public DateTime ExpiresUtc { get; set; }

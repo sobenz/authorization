@@ -20,7 +20,7 @@ namespace Sobenz.Authorization.Services
                 ClientId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
                 Name = "Admin Service",
                 IsConfidential = true,
-                AllowedScopes = new [] { Scopes.Merchant },
+                AllowedScopes = new [] { Scopes.Merchant, Scopes.Identity, Scopes.OpenId, Scopes.Profile },
                 State = ApplicationState.Active,
                 GlobalRoles = new [] { Roles.SecurityManager },
                 ContextualRoles = new Dictionary<int, IEnumerable<string>>
@@ -48,7 +48,7 @@ namespace Sobenz.Authorization.Services
                 ClientId = Guid.Parse("00000000-0000-0000-0000-000000000002"),
                 Name = "Portal Service",
                 IsConfidential = false,
-                AllowedScopes = new [] { Scopes.Identity },
+                AllowedScopes = new [] { Scopes.Identity, Scopes.OpenId, Scopes.Profile },
                 State = ApplicationState.Active,
                 GlobalRoles = new string[] { },
                 ContextualRoles = new Dictionary<int, IEnumerable<string>>(),
@@ -83,6 +83,11 @@ namespace Sobenz.Authorization.Services
         {
             Application result = _applications.FirstOrDefault(a => a.ClientId == clientId);
             return Task.FromResult(result);
+        }
+
+        public Task<IEnumerable<Application>> List(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IEnumerable<Application>>(_applications);
         }
     }
 }

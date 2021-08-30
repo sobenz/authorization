@@ -1,4 +1,5 @@
-﻿using Sobenz.Authorization.Interfaces;
+﻿using SimpleBase;
+using Sobenz.Authorization.Interfaces;
 using Sobenz.Authorization.Models;
 using System;
 using System.Collections.Generic;
@@ -14,7 +15,7 @@ namespace Sobenz.Authorization.Services
         private readonly List<RefreshToken> _refreshTokens = new List<RefreshToken>();
         private readonly List<AuthorizationCode> _authorizationCodes = new List<AuthorizationCode>();
 
-        public Task<string> CreateAuthorizationCodeAsync(Guid clientId, Guid grantingUserId, string redirectionUri, IEnumerable<string> grantedScopes, string codeChallenge, CodeChallengeMethod? codeChallengeMethod, CancellationToken cancellationToken = default)
+        public Task<string> CreateAuthorizationCodeAsync(Guid clientId, Guid grantingUserId, string redirectionUri, IEnumerable<string> grantedScopes, string codeChallenge, CodeChallengeMethod? codeChallengeMethod, string nonce, CancellationToken cancellationToken = default)
         {
             var authorizationCode = new AuthorizationCode
             {
@@ -25,7 +26,8 @@ namespace Sobenz.Authorization.Services
                 GrantedScopes = grantedScopes ?? new string[0],
                 ExpiresUtc = DateTime.Now.AddMinutes(1),
                 CodeChallenge = codeChallenge,
-                CodeChallengeMethod = codeChallengeMethod
+                CodeChallengeMethod = codeChallengeMethod,
+                Nonce = nonce
             };
             _authorizationCodes.Add(authorizationCode);
             return Task.FromResult(authorizationCode.Code);
@@ -41,7 +43,7 @@ namespace Sobenz.Authorization.Services
                 SubjectType = subjectType,
                 Subject = subject,
                 ClientId = clientId,
-                Scopes = new List<string>(grantedScopes),
+                Scopes = new List<string>(grantedScopes ?? new string[0]),
                 LastUsedOrganisationContext = organisationContext,
                 ExpiresUtc = DateTime.UtcNow.AddDays(30),
                 SessionId = Guid.NewGuid()
@@ -96,11 +98,12 @@ namespace Sobenz.Authorization.Services
 
         private string GenerateNewToken()
         {
+            
             using (RandomNumberGenerator rng = new RNGCryptoServiceProvider())
             {
                 var data = new byte[32];
                 rng.GetBytes(data);
-                return Convert.ToBase64String(data);
+                return Base58.Ripple.Encode(data);
             }
         }
     }

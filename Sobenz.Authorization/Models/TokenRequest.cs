@@ -47,6 +47,18 @@ namespace Sobenz.Authorization.Models
         [BindProperty(Name = "password")]
         public string Password { get; set; }
 
+        [JsonPropertyName("code")]
+        [BindProperty(Name = "code")]
+        public string Code { get; set; }
+
+        [JsonPropertyName("code_verifier")]
+        [BindProperty(Name = "code_verifier")]
+        public string CodeVerifier { get; set; }
+
+        [JsonPropertyName("redirect_uri")]
+        [BindProperty(Name = "redirect_uri")]
+        public Uri RedirectUri { get; set; }
+
         [JsonPropertyName("refresh_token")]
         [BindProperty(Name = "refresh_token")]
         public string RefreshToken { get; set; }

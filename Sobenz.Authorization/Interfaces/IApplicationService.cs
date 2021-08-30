@@ -1,7 +1,6 @@
 ﻿using Sobenz.Authorization.Models;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,5 +11,6 @@ namespace Sobenz.Authorization.Interfaces
         Task<Application> AuthenticateAsync(Guid clientId, CancellationToken cancellationToken = default);
         Task<Application> AuthenticateAsync(Guid clientId, string clientSecret, CancellationToken cancellationToken = default);
         Task<Application> GetAsync(Guid clientId, CancellationToken cancellationToken = default);
+        Task<IEnumerable<Application>> List(CancellationToken cancellationToken = default);
     }
 }

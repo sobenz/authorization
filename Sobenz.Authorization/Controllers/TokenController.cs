@@ -54,6 +54,9 @@ namespace Sobenz.Authorization.Controllers
 
             switch (tokenRequest.GrantType)
             {
+                case GrantType.AuthorizationCode:
+                    response = await _authorizationManager.GenerateUserAccessTokenAsync(client, tokenRequest.Code, tokenRequest.CodeVerifier, tokenRequest.RedirectUri, tokenRequest.Scopes, tokenRequest.OrganisationId, out code, cancellationToken);
+                    return StatusCode((int)code, response);
                 case GrantType.ClientCredentials:
                     response = await _authorizationManager.GenerateApplicationAccessTokenAsync(client, tokenRequest.Scopes, tokenRequest.OrganisationId, out code, cancellationToken);
                     return StatusCode((int)code, response);

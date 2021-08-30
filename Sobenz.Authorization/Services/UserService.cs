@@ -38,7 +38,7 @@ namespace Sobenz.Authorization.Services
             {
                 new User
                 {
-                    Id = Guid.NewGuid(),
+                    Id = Guid.Parse("e4a6d29a-1c6f-4f06-ab82-0ca69998ade2"),
                     FirstName = "Ben",
                     LastName = "Vaughan",
                     DateOfBirth = new DateTime(1976,12,17),

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Sobenz.Authorization.Interfaces;
 using Sobenz.Authorization.Models;
@@ -9,22 +10,27 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web;
 
 namespace Sobenz.Authorization.Controllers
 {
+    [Authorize(AuthenticationSchemes = CookieAuthenticationDefaults.AuthenticationScheme)]
     [Route("authorize")]
     public class AuthorizeController : Controller
     {
         private readonly IApplicationService _applicationService;
+        private readonly IAuthorizationCodeService _authorizationCodeService;
         private readonly IUserService _userService;
 
-        public AuthorizeController(IApplicationService applicationService, IUserService userService)
+        public AuthorizeController(IApplicationService applicationService, IUserService userService, IAuthorizationCodeService authorizationCodeService)
         {
             _applicationService = applicationService ?? throw new ArgumentNullException(nameof(applicationService));
+            _authorizationCodeService = authorizationCodeService ?? throw new ArgumentNullException(nameof(authorizationCodeService));
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<IActionResult> Index([FromQuery]AuthorizeRequest authorizeRequest, CancellationToken cancellationToken = default)
         {
             if (!ModelState.IsValid)
@@ -41,12 +47,15 @@ namespace Sobenz.Authorization.Controllers
                 return View("error"); //Application not allowed Scopes being requested.
 
             if (User.Identity.IsAuthenticated)
-                return View("grant", authorizeRequest);
+            {
+                return View("grant", new GrantPermissionsViewModel { AuthorizationRequest = authorizeRequest, RequestingApplication = application });
+            }
             else
                 return View("login", authorizeRequest);
         }
 
         [HttpPost]
+        [AllowAnonymous]
         public Task<IActionResult> Login([FromForm]AuthorizeOperation authorizationOperation, [FromQuery]AuthorizeRequest authorizeRequest, CancellationToken cancellationToken = default)
         {
             switch(authorizationOperation.Action)
@@ -62,8 +71,24 @@ namespace Sobenz.Authorization.Controllers
 
         private async Task<IActionResult> ProcessGrantAsync(AuthorizeRequest authorizeRequest, CancellationToken cancellationToken)
         {
-            //TODO Generate Access Code & Redirect
-            return await Task.FromResult<IActionResult>(View("login", authorizeRequest));
+            if (!User.Identity.IsAuthenticated || !User.HasClaim(c => c.Type == ClaimTypes.Sid))
+                return View("Error");
+
+            if (!Guid.TryParse(User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Sid)?.Value, out Guid userId))
+                return View("Error");
+
+            var code = await _authorizationCodeService.CreateAuthorizationCodeAsync(authorizeRequest.ClientId.Value, userId, authorizeRequest.RedirectUri.ToString(), 
+                authorizeRequest.Scopes, authorizeRequest.CodeChallenge, authorizeRequest.CodeChallengeMethod, authorizeRequest.Nonce, cancellationToken);
+
+            var builder = new UriBuilder(authorizeRequest.RedirectUri);
+            var query = HttpUtility.ParseQueryString(builder.Query);
+            query["code"] = code;
+            if (!string.IsNullOrEmpty(authorizeRequest.State))
+                query["state"] = authorizeRequest.State;
+            builder.Query = query.ToString();
+            string url = builder.ToString();
+
+            return Redirect(url);
         }
 
         private async Task<IActionResult> ProcessLoginAsync(string username, string password, AuthorizeRequest authorizeRequest, CancellationToken cancellationToken)
@@ -91,7 +116,10 @@ namespace Sobenz.Authorization.Controllers
             };
 
             await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(claimsIdentity), authProperties);
-            return View("grant", authorizeRequest);
+
+            var app = await _applicationService.GetAsync(authorizeRequest.ClientId.Value, cancellationToken);
+            var viewModel = new GrantPermissionsViewModel { RequestingApplication = app, AuthorizationRequest = authorizeRequest };
+            return View("grant", viewModel);
         }
 
         private async Task<IActionResult> ProcessLogoutAsync(AuthorizeRequest authorizeRequest, CancellationToken cancellationToken)

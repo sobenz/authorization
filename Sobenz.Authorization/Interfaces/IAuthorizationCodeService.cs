@@ -8,7 +8,7 @@ namespace Sobenz.Authorization.Interfaces
 {
     public interface IAuthorizationCodeService
     {
-        Task<string> CreateAuthorizationCodeAsync(Guid clientId, Guid grantingUserId, string redirectionUri, IEnumerable<string> grantedScopes, string codeChallenge, CodeChallengeMethod? codeChallengeMethod, CancellationToken cancellationToken = default);
+        Task<string> CreateAuthorizationCodeAsync(Guid clientId, Guid grantingUserId, string redirectionUri, IEnumerable<string> grantedScopes, string codeChallenge, CodeChallengeMethod? codeChallengeMethod, string nonce, CancellationToken cancellationToken = default);
 
         Task<AuthorizationCode> ValidateCodeAsync(string authorizationCode, CancellationToken cancellationToken = default);
     }

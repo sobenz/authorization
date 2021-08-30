@@ -7,6 +7,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Net;
 using System.Security.Claims;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,15 +18,18 @@ namespace Sobenz.Authorization.Services
     {
         private readonly JwtSecurityTokenHandler _tokenHandler;
         private readonly SigningCredentials _signingCredentials;
+        private readonly IAuthorizationCodeService _authorizationCodeService;
         private readonly IRefreshTokenService _refreshTokenService;
         private readonly IUserService _userService;
 
-        public AuthorizationManager(IRefreshTokenService refreshTokenService, IUserService userService)
+        public AuthorizationManager(IAuthorizationCodeService authorizationCodeService, IRefreshTokenService refreshTokenService, IUserService userService)
         {
             //Should be an X509 Cert
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("Password12345678"));
-            _signingCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256Signature);
+            var certStore = new X509Store(StoreName.My, StoreLocation.LocalMachine, OpenFlags.ReadOnly);
+            var cert = certStore.Certificates.OfType<X509Certificate2>().First(c => c.FriendlyName == "SobenzCert");
+            _signingCredentials = new X509SigningCredentials(cert, SecurityAlgorithms.RsaSha256);
             _tokenHandler = new JwtSecurityTokenHandler();
+            _authorizationCodeService = authorizationCodeService ?? throw new ArgumentNullException(nameof(authorizationCodeService));
             _refreshTokenService = refreshTokenService ?? throw new ArgumentNullException(nameof(refreshTokenService));
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
         }
@@ -69,7 +73,7 @@ namespace Sobenz.Authorization.Services
             foreach (var role in roles)
                 claims.Add(new Claim(ClaimTypes.Role, role));
 
-            var accessToken = _tokenHandler.CreateEncodedJwt("sobenz.com", "https://api.sobenz.com/merchant", new ClaimsIdentity(claims), DateTime.UtcNow.AddMinutes(-5), DateTime.Now.AddMinutes(5), DateTime.UtcNow, _signingCredentials);
+            var accessToken = _tokenHandler.CreateEncodedJwt("https://sobenz.com", "https://api.sobenz.com/merchant", new ClaimsIdentity(claims), DateTime.UtcNow.AddMinutes(-5), DateTime.Now.AddMinutes(1), DateTime.UtcNow, _signingCredentials);
             
             statusCode = HttpStatusCode.OK;
             var successResponse = new TokenResponseSuccess
@@ -77,6 +81,91 @@ namespace Sobenz.Authorization.Services
                 AccessToken = accessToken,
                 TokenType = TokenResponseType.AccessToken,
                 ExpiresIn = (int)TimeSpan.FromMinutes(5).TotalSeconds,
+                RefreshToken = refreshToken.Token
+            };
+            return Task.FromResult<ITokenResponse>(successResponse);
+        }
+
+        public Task<ITokenResponse> GenerateUserAccessTokenAsync(Application application, string authroizationCode, string codeVerifier, Uri redirectUri, IEnumerable<string> scopes, int? organisationId, out HttpStatusCode statusCode, CancellationToken cancellationToken)
+        {
+            if (scopes == null)
+                scopes = new List<string>();
+
+            if (!application.IsConfidential && string.IsNullOrEmpty(codeVerifier))
+            {
+                statusCode = HttpStatusCode.BadRequest;//Confirm
+                var response = new TokenResponseError { Error = TokenFailureError.InvalidClient, ErrorDescription = "Public clients must provide PKCE verifier." };
+                return Task.FromResult<ITokenResponse>(response);
+            }
+            var code = _authorizationCodeService.ValidateCodeAsync(authroizationCode, cancellationToken).Result;
+            if (code == null)
+            {
+                statusCode = HttpStatusCode.Unauthorized;//Confirm
+                var response = new TokenResponseError { Error = TokenFailureError.UnauthorizedClient, ErrorDescription = "Invalid or expired Authorization Code" };
+                return Task.FromResult<ITokenResponse>(response);
+            }
+            if (redirectUri.ToString() != code.RedirectionUri)
+            {
+                statusCode = HttpStatusCode.BadRequest;//Confirm
+                var response = new TokenResponseError { Error = TokenFailureError.InvalidClient, ErrorDescription = "Redirect Uri mismatch." };
+                return Task.FromResult<ITokenResponse>(response);
+            }
+            if ((scopes != null) && scopes.Any(s => !code.GrantedScopes.Contains(s)))
+            {
+                statusCode = HttpStatusCode.BadRequest;//Confirm
+                var response = new TokenResponseError { Error = TokenFailureError.InvalidScope, ErrorDescription = "Scopes are not subset of orginal grant." };
+                return Task.FromResult<ITokenResponse>(response);
+            }
+            if(!string.IsNullOrEmpty(codeVerifier))
+            {
+                //TODO - Validate PKCE
+            }
+
+            var user = _userService.GetUserAsync(code.GrantingUserId, false, cancellationToken).Result;
+            if (user == null)
+            {
+                statusCode = HttpStatusCode.Unauthorized;
+                var response = new TokenResponseError { Error = TokenFailureError.AccessDenied, ErrorDescription = "Authentication Failed." };
+                return Task.FromResult<ITokenResponse>(response);
+            }
+
+            var refreshToken = _refreshTokenService.CreateTokenAsync(SubjectType.User, user.Id, application.ClientId, scopes, organisationId, cancellationToken).Result;
+
+            var claims = new List<Claim>
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                new Claim(JwtRegisteredClaimNames.Actort, "User"),
+                new Claim("client_id", application.ClientId.ToString()),
+                new Claim("session_id", refreshToken.SessionId.ToString())
+            };
+            if (organisationId.HasValue)
+                claims.Add(new Claim("organisation_id", $"{organisationId}"));
+
+            //If they are a merchant we add any roles they may have associated.
+            string audience = "https://api.sobenz.com/consumer";
+            if (scopes.Contains(Scopes.Merchant))
+            {
+                audience = "https://api.sobenz.com/merchant";
+                var roles = (organisationId.HasValue && user.ContextualRoles.ContainsKey(organisationId.Value))
+                    ? user.GlobalRoles.Union(user.ContextualRoles[organisationId.Value])
+                    : user.GlobalRoles;
+                foreach (var role in roles)
+                    claims.Add(new Claim(ClaimTypes.Role, role));
+            }
+
+            var accessToken = _tokenHandler.CreateEncodedJwt("https://sobenz.com", audience, new ClaimsIdentity(claims), DateTime.UtcNow.AddMinutes(-5), DateTime.Now.AddMinutes(1), DateTime.UtcNow, _signingCredentials);
+
+            string idToken = null;
+            if (code.GrantedScopes.Contains(Scopes.Identity) || code.GrantedScopes.Contains(Scopes.OpenId))
+                idToken = GenerateUserIdentityToken(user, code.Nonce, code.RedirectionUri, scopes);
+
+            statusCode = HttpStatusCode.OK;
+            var successResponse = new TokenResponseSuccess
+            {
+                AccessToken = accessToken,
+                TokenType = TokenResponseType.AccessToken,
+                ExpiresIn = (int)TimeSpan.FromMinutes(5).TotalSeconds,
+                IdentityToken = idToken,
                 RefreshToken = refreshToken.Token
             };
             return Task.FromResult<ITokenResponse>(successResponse);
@@ -124,7 +213,7 @@ namespace Sobenz.Authorization.Services
                     claims.Add(new Claim(ClaimTypes.Role, role));
             }
 
-            var accessToken = _tokenHandler.CreateEncodedJwt("sobenz.com", audience, new ClaimsIdentity(claims), DateTime.UtcNow.AddMinutes(-5), DateTime.Now.AddMinutes(5), DateTime.UtcNow, _signingCredentials);
+            var accessToken = _tokenHandler.CreateEncodedJwt("https://sobenz.com", audience, new ClaimsIdentity(claims), DateTime.UtcNow.AddMinutes(-5), DateTime.Now.AddMinutes(1), DateTime.UtcNow, _signingCredentials);
 
             statusCode = HttpStatusCode.OK;
             var successResponse = new TokenResponseSuccess
@@ -177,7 +266,7 @@ namespace Sobenz.Authorization.Services
                     claims.Add(new Claim(ClaimTypes.Role, role));
             }
 
-            var accessToken = _tokenHandler.CreateEncodedJwt("sobenz.com", audience, new ClaimsIdentity(claims), DateTime.UtcNow.AddMinutes(-5), DateTime.Now.AddMinutes(5), DateTime.UtcNow, _signingCredentials);
+            var accessToken = _tokenHandler.CreateEncodedJwt("https://sobenz.com", audience, new ClaimsIdentity(claims), DateTime.UtcNow.AddMinutes(-5), DateTime.Now.AddMinutes(1), DateTime.UtcNow, _signingCredentials);
 
             statusCode = HttpStatusCode.OK;
             var successResponse = new TokenResponseSuccess
@@ -188,6 +277,35 @@ namespace Sobenz.Authorization.Services
                 RefreshToken = refreshToken.Token
             };
             return Task.FromResult<ITokenResponse>(successResponse);
+        }
+
+        private string GenerateUserIdentityToken(User user, string nonce, string redirectUrl, IEnumerable<string> scopes)
+        {
+            var claims = new List<Claim>
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString())
+            };
+            if (scopes.Contains(Scopes.Profile))
+            {
+                claims.Add(new Claim(JwtRegisteredClaimNames.GivenName, user.FirstName));
+                claims.Add(new Claim(JwtRegisteredClaimNames.FamilyName, user.LastName));
+                claims.Add(new Claim(JwtRegisteredClaimNames.Birthdate, user.DateOfBirth.ToString(), ClaimValueTypes.Date));
+            }
+            if (scopes.Contains(Scopes.Email))
+            {
+                claims.Add(new Claim(JwtRegisteredClaimNames.Email, user.EmailAddress));
+                claims.Add(new Claim("email_verified", user.EmailVerified.ToString(), ClaimValueTypes.Boolean));
+            }
+            if (!string.IsNullOrEmpty(nonce))
+            {
+                claims.Add(new Claim(JwtRegisteredClaimNames.Nonce, nonce));
+            }
+            Uri redirectUri = new Uri(redirectUrl);
+            string audience = $"{redirectUri.Scheme}://{redirectUri.Authority}";
+
+            string token = _tokenHandler.CreateEncodedJwt("https://sobenz.com", audience, new ClaimsIdentity(claims), DateTime.UtcNow, DateTime.Now.AddDays(2), DateTime.UtcNow, _signingCredentials);
+
+            return token;
         }
     }
 }

@@ -1,34 +1,51 @@
-﻿@model Sobenz.Authorization.Models.AuthorizeRequest
+﻿@using Sobenz.Authorization.Models
+@model Sobenz.Authorization.Models.GrantPermissionsViewModel
+
+@{ 
+    var name = @User.Claims.FirstOrDefault(c => c.Type == "FullName")?.Value ?? "User";
+    var app = Model.RequestingApplication;
+    var req = Model.AuthorizationRequest;
+    var implicitScopes = req.Scopes.Intersect(Scopes.ImplicitGrantScopes);
+    var explicitScopes = req.Scopes.Intersect(Scopes.ExplicitGrantScopes);
+}
 <html>
 <head>
     <meta name="viewport" content="width=device-width" />
-    <title>Grant Permission</title>
+    <title>Grant Permissions</title>
 </head>
 <body>
-    <h3>Login Page</h3>
-    @ViewBag.error
-    <form method="post" asp-controller="authorize" asp-action="login" asp-route-response_type="@Model.ResponseType" asp-route-client_id="@Model.ClientId" asp-route-redirect_uri="@Model.RedirectUri"
-          asp-route-state="@Model.State" asp-route-code_challenge="@Model.CodeChallenge" asp-route-code_challenge_method="@Model.CodeChallengeMethod" asp-route-scope="@Model.Scopes.Aggregate((e,n) => $"{e} {n}")">
-        <table border="0" cellpadding="2" cellspacing="2">
-            @*<tr>
-                    <td>Username</td>
-                    <td><input type="text" name="username"></td>
-                </tr>
-                <tr>
-                    <td>Password</td>
-                    <td><input type="password" name="password"></td>
-                </tr>*@
-            <tr>
-                <td>&nbsp;</td>
-                <td><input type="submit" value="Accept"></td>
-            </tr>
-        </table>
-        <input type="hidden" name="action" value="grant" />
+    <h3>@app.Name is requesting access to your account.</h3>
+    @if (explicitScopes.Any())
+    {
+    <p>Welcome @name the following scopes are being requested:</p>
+    <p>
+        <ul>
+            @foreach (var scope in explicitScopes)
+            {
+                <li>@scope</li>
+            }
+            @if(implicitScopes.Any())
+            {
+                <li>Call API's on your behalf.</li>
+            }
+        </ul>
+    </p>
+    }
+    <form method="post" asp-controller="authorize" asp-action="login" asp-route-response_type="@req.ResponseType" asp-route-client_id="@req.ClientId" 
+          asp-route-redirect_uri="@req.RedirectUri" asp-route-state="@req.State" asp-route-code_challenge="req.CodeChallenge" 
+          asp-route-code_challenge_method="@req.CodeChallengeMethod" asp-route-scope="@Model.AuthorizationRequest.Scopes.Aggregate((e,n) => $"{e} {n}")"
+          asp-route-nonce="@req.Nonce">
+        <p>
+            <input type="submit" value="Accept">
+            <input type="hidden" name="action" value="grant" />
+        </p>
     </form>
-    <form method="post" asp-controller="authorize" asp-action="logout" asp-route-response_type="@Model.ResponseType" asp-route-client_id="@Model.ClientId" asp-route-redirect_uri="@Model.RedirectUri"
-          asp-route-state="@Model.State" asp-route-code_challenge="@Model.CodeChallenge" asp-route-code_challenge_method="@Model.CodeChallengeMethod" asp-route-scope="@Model.Scopes.Aggregate((e,n) => $"{e} {n}")">
-        <p>If this is not you currently logged in then click here to logout and return to the login page.<input type="submit" value="Logout"/></p>
-        <input type="hidden" name="action" value="logout"/>
+    <form method="post" asp-controller="authorize" asp-action="logout"  asp-route-response_type="@req.ResponseType" asp-route-client_id="@req.ClientId" 
+          asp-route-redirect_uri="@req.RedirectUri" asp-route-state="@req.State" asp-route-code_challenge="req.CodeChallenge" 
+          asp-route-code_challenge_method="@req.CodeChallengeMethod" asp-route-scope="@Model.AuthorizationRequest.Scopes.Aggregate((e,n) => $"{e} {n}")"
+          asp-route-nonce="@req.Nonce">
+        <p>If you are not '@name' then please click here to logout and to return to the login page.</p>
+        <p><input type="submit" value="Logout" /><input type="hidden" name="action" value="logout" /></p>
     </form>
 </body>
 </html>

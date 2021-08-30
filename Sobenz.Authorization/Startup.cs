@@ -1,11 +1,13 @@
-using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.IdentityModel.Tokens;
 using Sobenz.Authorization.Interfaces;
 using Sobenz.Authorization.Services;
-
+using System.Security.Cryptography.X509Certificates;
+using System.Text.Json.Serialization;
 
 namespace Sobenz.Authorization
 {
@@ -22,10 +24,24 @@ namespace Sobenz.Authorization
             services.AddSingleton<IAuthorizationCodeService>(x => x.GetRequiredService<PersistedTokenService>());
             services.AddSingleton<IUserService, UserService>();
 
-            services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(opts =>
+                {
+                    var cert = new X509Certificate2(@".\Cert\SobenzCert.cer");
+                    opts.TokenValidationParameters.IssuerSigningKey = new X509SecurityKey(cert);
+                    opts.TokenValidationParameters.ValidIssuer = "https://sobenz.com";
+                    opts.TokenValidationParameters.ValidAudience = "https://api.sobenz.com/merchant";
+                })
                 .AddCookie();
 
-            services.AddControllersWithViews();
+            services.AddControllersWithViews()
+                .AddJsonOptions(opts =>
+                {
+                    opts.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+#if DEBUG
+                    opts.JsonSerializerOptions.WriteIndented = true;
+#endif
+                });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

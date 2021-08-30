@@ -50,5 +50,8 @@ namespace Sobenz.Authorization.Models
 
         [BindProperty(Name = "code_challenge_method", BinderType = typeof(EnumBinder<CodeChallengeMethod>))]
         public CodeChallengeMethod? CodeChallengeMethod { get; set; }
+
+        [BindProperty(Name = "nonce")]
+        public string Nonce { get; set; }
     }
 }

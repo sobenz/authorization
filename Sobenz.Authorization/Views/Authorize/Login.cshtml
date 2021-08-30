@@ -8,7 +8,8 @@
     <h3>Login Page</h3>
     @ViewBag.error
     <form method="post" asp-controller="authorize" asp-action="login" asp-route-response_type="@Model.ResponseType" asp-route-client_id="@Model.ClientId" asp-route-redirect_uri="@Model.RedirectUri"
-          asp-route-state="@Model.State" asp-route-code_challenge="@Model.CodeChallenge" asp-route-code_challenge_method="@Model.CodeChallengeMethod" asp-route-scope="@Model.Scopes.Aggregate((e,n) => $"{e} {n}")">
+          asp-route-state="@Model.State" asp-route-code_challenge="@Model.CodeChallenge" asp-route-code_challenge_method="@Model.CodeChallengeMethod" asp-route-scope="@Model.Scopes.Aggregate((e,n) => $"{e} {n}")"
+          asp-route-nonce="@Model.Nonce">
         <table border="0" cellpadding="2" cellspacing="2">
             <tr>
                 <td>Username</td>
