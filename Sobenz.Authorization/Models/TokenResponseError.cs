@@ -1,4 +1,5 @@
 ﻿using Sobenz.Authorization.Interfaces;
+using System;
 using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
 
@@ -16,6 +17,9 @@ namespace Sobenz.Authorization.Models
         [EnumMember(Value = "invalid_grant")]
         InvalidGrant,
 
+        [EnumMember(Value = "invalid_request")]
+        InvalidRequest,
+
         [EnumMember(Value = "invalid_scope")]
         InvalidScope,
 
@@ -23,20 +27,34 @@ namespace Sobenz.Authorization.Models
         InvalidToken,
 
         [EnumMember(Value = "unauthorized_client")]
-        UnauthorizedClient
+        UnauthorizedClient,
+
+        [EnumMember(Value = "unsupported_grant_type")]
+        UnsupportedGrantType
     }
 
     public class TokenResponseError : ITokenResponse
     {
+        public TokenResponseError()
+        {
+        }
+
+        public TokenResponseError(TokenFailureError error, string description = null, Uri errorUri = null)
+        {
+            Error = error;
+            ErrorDescription = description;
+            ErrorUri = errorUri;
+        }
+
         [JsonPropertyName("error")]
-        public TokenFailureError Error { get; set; }
+        public TokenFailureError Error { get; init; }
 
         [JsonPropertyName("error_description")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string ErrorDescription { get; set; }
+        public string ErrorDescription { get; init; }
 
         [JsonPropertyName("error_uri")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string ErrorUri { get; set; }
+        public Uri ErrorUri { get; init; }
     }
 }

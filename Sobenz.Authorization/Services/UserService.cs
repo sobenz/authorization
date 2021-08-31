@@ -61,7 +61,13 @@ namespace Sobenz.Authorization.Services
             };
         }
 
-        public Task<User> AuthenticateWithPasswordAsync(string username, string password, CancellationToken cancellationToken = default)
+        public Task<User> GetUserAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            var user = _userList.FirstOrDefault(u => u.Id == id);
+                return Task.FromResult(user);
+        }
+
+        public Task<User> GetUserByUsernameAsync(string username, CancellationToken cancellationToken = default)
         {
             User user = _userList.FirstOrDefault(u =>
             {
@@ -70,28 +76,7 @@ namespace Sobenz.Authorization.Services
                     return true;
                 return false;
             });
-            if (user != null && (user.State != UserState.Deactivated))
-            {
-                var identity = user.Identities.OfType<UserPasswordIdentity>().First(i => i.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
-                var pwdBytes = Encoding.UTF8.GetBytes(password);
-                var argon2 = new Argon2i(pwdBytes);
-                argon2.DegreeOfParallelism = 1;
-                argon2.MemorySize = 1024;
-                argon2.Iterations = 2;
-                argon2.Salt = Convert.FromBase64String(identity.Salt);
-                var encPwdBytes = argon2.GetBytes(128);
-                if (Convert.ToBase64String(encPwdBytes) == identity.Password)
-                    return Task.FromResult(user);
-            }
-            return Task.FromResult<User>(null);
-        }
-
-        public Task<User> GetUserAsync(Guid id, bool includeDeactivated = false, CancellationToken cancellationToken = default)
-        {
-            var user = _userList.FirstOrDefault(u => u.Id == id);
-            if (includeDeactivated || (user.State != UserState.Deactivated))
-                return Task.FromResult(user);
-            return Task.FromResult<User>(null);
+            return Task.FromResult(user);
         }
     }
 }

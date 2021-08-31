@@ -13,12 +13,10 @@ namespace Sobenz.Authorization.Controllers
     [Route("api/[controller]")]
     public class TokenController : ControllerBase
     {
-        private readonly IApplicationService _applicationService;
         private readonly IAuthorizationManager _authorizationManager;
 
-        public TokenController(IApplicationService applicationService, IAuthorizationManager authorizationManager)
+        public TokenController(IAuthorizationManager authorizationManager)
         {
-            _applicationService = applicationService ?? throw new ArgumentNullException(nameof(applicationService));
             _authorizationManager = authorizationManager ?? throw new ArgumentNullException(nameof(authorizationManager));
         }
 
@@ -40,43 +38,33 @@ namespace Sobenz.Authorization.Controllers
 
         private async Task<IActionResult> ProcessTokenRequestAsync(TokenRequest tokenRequest, CancellationToken cancellationToken)
         {
-            //Check if we have a valid clientId at this point.
-            if (!tokenRequest.ClientId.HasValue)
-                return new BadRequestObjectResult(new TokenResponseError { Error = TokenFailureError.InvalidClient });
+            var getApplicationOperation = await _authorizationManager.AuthenticateApplicationAsync(tokenRequest.ClientId, tokenRequest.ClientSecret, tokenRequest.RedirectUri, tokenRequest.Scopes, cancellationToken);
+            if(!getApplicationOperation.Success)
+            {
+                return StatusCode((int)getApplicationOperation.StatusCode, getApplicationOperation.TokenResponse);
+            }
+            var client = getApplicationOperation.Resource;
 
-            //Ensure the client is validateed to the required level
-            var client = await ValidateClient(tokenRequest.ClientId.Value, tokenRequest.ClientSecret, cancellationToken);
-            if (client == null)
-                return new UnauthorizedObjectResult(new TokenResponseError { Error = TokenFailureError.UnauthorizedClient });
-
-            HttpStatusCode code;
-            ITokenResponse response = null;
+            AuthorizationOutcome outcome = null;
 
             switch (tokenRequest.GrantType)
             {
                 case GrantType.AuthorizationCode:
-                    response = await _authorizationManager.GenerateUserAccessTokenAsync(client, tokenRequest.Code, tokenRequest.CodeVerifier, tokenRequest.RedirectUri, tokenRequest.Scopes, tokenRequest.OrganisationId, out code, cancellationToken);
-                    return StatusCode((int)code, response);
+                    outcome = await _authorizationManager.GenerateUserAccessTokenAsync(client, tokenRequest.Code, tokenRequest.CodeVerifier, tokenRequest.RedirectUri, tokenRequest.Scopes, tokenRequest.OrganisationId, cancellationToken);
+                    break;
                 case GrantType.ClientCredentials:
-                    response = await _authorizationManager.GenerateApplicationAccessTokenAsync(client, tokenRequest.Scopes, tokenRequest.OrganisationId, out code, cancellationToken);
-                    return StatusCode((int)code, response);
+                    outcome = await _authorizationManager.GenerateApplicationAccessTokenAsync(client, tokenRequest.Scopes, tokenRequest.OrganisationId, cancellationToken);
+                    break;
                 case GrantType.Password:
-                    response = await _authorizationManager.GenerateUserAccessTokenAsync(client, tokenRequest.Username, tokenRequest.Password, tokenRequest.Scopes, tokenRequest.OrganisationId, out code, cancellationToken);
-                    return StatusCode((int)code, response);
+                    outcome = await _authorizationManager.GenerateUserAccessTokenAsync(client, tokenRequest.Username, tokenRequest.Password, tokenRequest.Scopes, tokenRequest.OrganisationId, cancellationToken);
+                    break;
                 case GrantType.RefreshToken:
-                    response = await _authorizationManager.RefreshAccessTokenAsync(client, tokenRequest.RefreshToken, tokenRequest.Scopes, tokenRequest.OrganisationId, out code, cancellationToken);
-                    return StatusCode((int)code, response);
+                    outcome = await _authorizationManager.RefreshAccessTokenAsync(client, tokenRequest.RefreshToken, tokenRequest.Scopes, tokenRequest.OrganisationId, cancellationToken);
+                    break;
                 default:
                     return BadRequest(new TokenResponseError { Error = TokenFailureError.InvalidGrant });
             }
-        }
-
-        private async Task<Application> ValidateClient(Guid clientId, string clientSecret, CancellationToken cancellationToken)
-        {
-            if (string.IsNullOrEmpty(clientSecret))
-                return await _applicationService.AuthenticateAsync(clientId, cancellationToken);
-            else
-                return await _applicationService.AuthenticateAsync(clientId, clientSecret, cancellationToken);
+            return StatusCode((int)outcome.StatusCode, outcome.TokenResponse);
         }
     }
 }

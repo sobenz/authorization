@@ -9,15 +9,17 @@ namespace Sobenz.Authorization.Models
         Disabled
     }
 
-    public class Application
+    public class Application : Subject
     {
-        public Guid ClientId { get; set; }
+        public Application() : base(SubjectType.Application)
+        {
+        }
+
         public string Name { get; set; }
         public bool IsConfidential { get; set; }
         public ApplicationState State { get; set; }
         public IEnumerable<string> AllowedScopes { get; set; }
+        public IEnumerable<Uri> RedirectionUrls { get; set; }
         public IEnumerable<ClientSecret> Secrets { get; set; }
-        public IEnumerable<string> GlobalRoles { get; set; }
-        public IDictionary<int, IEnumerable<string>> ContextualRoles { get; set; }
     }
 }

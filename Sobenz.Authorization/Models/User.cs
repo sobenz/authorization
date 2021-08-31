@@ -9,9 +9,12 @@ namespace Sobenz.Authorization.Models
         Deactivated
     }
 
-    public class User
+    public class User : Subject
     {
-        public Guid Id { get; set; }
+        public User() : base(SubjectType.User)
+        {
+        }
+
         public UserState State { get; set; }
         public string FirstName { get; set; }
         public string LastName { get; set; }
@@ -19,7 +22,5 @@ namespace Sobenz.Authorization.Models
         public bool EmailVerified { get; set; }
         public DateTime DateOfBirth { get; set; }
         public IEnumerable<UserIdentity> Identities { get; set; }
-        public IEnumerable<string> GlobalRoles { get; set; }
-        public IDictionary<int, IEnumerable<string>> ContextualRoles { get; set; }
     }
 }

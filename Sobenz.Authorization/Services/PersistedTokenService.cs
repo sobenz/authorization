@@ -1,4 +1,5 @@
-﻿using SimpleBase;
+﻿using Microsoft.Extensions.Options;
+using SimpleBase;
 using Sobenz.Authorization.Interfaces;
 using Sobenz.Authorization.Models;
 using System;
@@ -15,6 +16,13 @@ namespace Sobenz.Authorization.Services
         private readonly List<RefreshToken> _refreshTokens = new List<RefreshToken>();
         private readonly List<AuthorizationCode> _authorizationCodes = new List<AuthorizationCode>();
 
+        private readonly IOptions<PersistedTokenOptions> _persistedTokenOptions;
+
+        public PersistedTokenService(IOptions<PersistedTokenOptions> persistedTokenOptions)
+        {
+            _persistedTokenOptions = persistedTokenOptions ?? throw new ArgumentNullException(nameof(persistedTokenOptions));
+        }
+
         public Task<string> CreateAuthorizationCodeAsync(Guid clientId, Guid grantingUserId, string redirectionUri, IEnumerable<string> grantedScopes, string codeChallenge, CodeChallengeMethod? codeChallengeMethod, string nonce, CancellationToken cancellationToken = default)
         {
             var authorizationCode = new AuthorizationCode
@@ -24,7 +32,7 @@ namespace Sobenz.Authorization.Services
                 GrantingUserId = grantingUserId,
                 RedirectionUri = redirectionUri,
                 GrantedScopes = grantedScopes ?? new string[0],
-                ExpiresUtc = DateTime.Now.AddMinutes(1),
+                ExpiresUtc = DateTime.Now.Add(_persistedTokenOptions.Value.AuthorizationCodeLifetime),
                 CodeChallenge = codeChallenge,
                 CodeChallengeMethod = codeChallengeMethod,
                 Nonce = nonce
@@ -45,7 +53,7 @@ namespace Sobenz.Authorization.Services
                 ClientId = clientId,
                 Scopes = new List<string>(grantedScopes ?? new string[0]),
                 LastUsedOrganisationContext = organisationContext,
-                ExpiresUtc = DateTime.UtcNow.AddDays(30),
+                ExpiresUtc = DateTime.UtcNow.Add(_persistedTokenOptions.Value.RefreshTokenLifetime),
                 SessionId = Guid.NewGuid()
             };
             _refreshTokens.Add(refreshToken);
@@ -68,10 +76,10 @@ namespace Sobenz.Authorization.Services
                         refreshToken.Token = GenerateNewToken();
                     }
                     //if(!forceRefresh) Update expiration time.
-                    refreshToken.ExpiresUtc = DateTime.UtcNow.AddDays(30);
+                    refreshToken.ExpiresUtc = DateTime.UtcNow.Add(_persistedTokenOptions.Value.RefreshTokenLifetime);
 
                     //Generate a new session if outside 2x refresh window.
-                    if (refreshToken.LastRefreshUtc.HasValue && (DateTime.UtcNow.Subtract(refreshToken.LastRefreshUtc.Value) > TimeSpan.FromMinutes(10)))
+                    if (refreshToken.LastRefreshUtc.HasValue && (DateTime.UtcNow.Subtract(refreshToken.LastRefreshUtc.Value) > _persistedTokenOptions.Value.UserSessionLifetime))
                     {
                         refreshToken.SessionId = Guid.NewGuid();
                     }

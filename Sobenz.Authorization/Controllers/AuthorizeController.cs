@@ -20,13 +20,13 @@ namespace Sobenz.Authorization.Controllers
     {
         private readonly IApplicationService _applicationService;
         private readonly IAuthorizationCodeService _authorizationCodeService;
-        private readonly IUserService _userService;
+        private readonly IAuthorizationManager _authorizationManager;
 
-        public AuthorizeController(IApplicationService applicationService, IUserService userService, IAuthorizationCodeService authorizationCodeService)
+        public AuthorizeController(IApplicationService applicationService, IAuthorizationManager authorizationManager, IAuthorizationCodeService authorizationCodeService)
         {
             _applicationService = applicationService ?? throw new ArgumentNullException(nameof(applicationService));
             _authorizationCodeService = authorizationCodeService ?? throw new ArgumentNullException(nameof(authorizationCodeService));
-            _userService = userService ?? throw new ArgumentNullException(nameof(userService));
+            _authorizationManager = authorizationManager ?? throw new ArgumentNullException(nameof(authorizationManager));
         }
 
         [HttpGet]
@@ -96,15 +96,19 @@ namespace Sobenz.Authorization.Controllers
             if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
                 return View("login", authorizeRequest);
 
-            var user = await _userService.AuthenticateWithPasswordAsync(username, password, cancellationToken);
-            if (user == null)
+            var getUserOperation = await _authorizationManager.AuthenticateUserAsync(username, password, cancellationToken);
+
+            if(!getUserOperation.Success)
                 return View("login", authorizeRequest); //Failed Login
+
+            User user = getUserOperation.Resource;
+
 
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Sid, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, username),
-                new Claim("FullName", $"{user.FirstName} {user.LastName}")
+                new Claim(CustomClaims.FullName, $"{user.FirstName} {user.LastName}")
             };
             var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             var authProperties = new AuthenticationProperties

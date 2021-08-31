@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -17,7 +16,7 @@ namespace Sobenz.Authorization.Services
         {
             new Application
             {
-                ClientId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
+                Id = Guid.Parse("00000000-0000-0000-0000-000000000001"),
                 Name = "Admin Service",
                 IsConfidential = true,
                 AllowedScopes = new [] { Scopes.Merchant, Scopes.Identity, Scopes.OpenId, Scopes.Profile },
@@ -26,6 +25,10 @@ namespace Sobenz.Authorization.Services
                 ContextualRoles = new Dictionary<int, IEnumerable<string>>
                 {
                     { 1, new [] { "StoreManager", "StoreOperator" } }
+                },
+                RedirectionUrls = new []
+                {
+                    new Uri("https://localhost:44328/verify_auth_code")
                 },
                 Secrets = new []
                 {
@@ -45,43 +48,26 @@ namespace Sobenz.Authorization.Services
             },
             new Application
             {
-                ClientId = Guid.Parse("00000000-0000-0000-0000-000000000002"),
+                Id = Guid.Parse("00000000-0000-0000-0000-000000000002"),
                 Name = "Portal Service",
                 IsConfidential = false,
                 AllowedScopes = new [] { Scopes.Identity, Scopes.OpenId, Scopes.Profile },
                 State = ApplicationState.Active,
                 GlobalRoles = new string[] { },
                 ContextualRoles = new Dictionary<int, IEnumerable<string>>(),
+                RedirectionUrls = new []
+                {
+                    new Uri("https://localhost:44328/verify_auth_code")
+                },
                 Secrets = new ClientSecret[]
                 {
                 }
             }
         };
 
-        public Task<Application> AuthenticateAsync(Guid clientId, CancellationToken cancellationToken = default)
-        {
-            Application result = _applications.FirstOrDefault(a => a.ClientId == clientId && !a.IsConfidential);
-            return Task.FromResult(result);
-        }
-
-        public Task<Application> AuthenticateAsync(Guid clientId, string clientSecret, CancellationToken cancellationToken = default)
-        {
-            Application result = null;
-            var app = _applications.FirstOrDefault(a => a.ClientId == clientId && a.IsConfidential);
-            if (app != null)
-            {
-                var challenge = Convert.ToBase64String(_hasher.ComputeHash(Encoding.UTF8.GetBytes(clientSecret)));
-                if (app.Secrets.Any(s => s.SecretHash == challenge && DateTime.UtcNow > s.ActiveFrom && DateTime.UtcNow < s.ActiveTo))
-                {
-                    result = app;
-                }
-            }
-            return Task.FromResult(result);
-        }
-
         public Task<Application> GetAsync(Guid clientId, CancellationToken cancellationToken = default)
         {
-            Application result = _applications.FirstOrDefault(a => a.ClientId == clientId);
+            Application result = _applications.FirstOrDefault(a => a.Id == clientId);
             return Task.FromResult(result);
         }
 

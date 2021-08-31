@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Sobenz.Authorization.Interfaces;
+using Sobenz.Authorization.Models;
 using Sobenz.Authorization.Services;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json.Serialization;
@@ -13,10 +15,21 @@ namespace Sobenz.Authorization
 {
     public class Startup
     {
+        public Startup(IConfiguration configuration)
+        {
+            Configuration = configuration;
+        }
+
+        public IConfiguration Configuration { get; }
+
         // This method gets called by the runtime. Use this method to add services to the container.
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
+            services.Configure<TokenOptions>(Configuration.GetSection("TokenSettings"));
+            services.Configure<PersistedTokenOptions>(Configuration.GetSection("PersistedTokenSettings"));
+
+            services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
             services.AddSingleton<IApplicationService, ApplicationService>();
             services.AddSingleton<IAuthorizationManager, AuthorizationManager>();
             services.AddSingleton<PersistedTokenService>();

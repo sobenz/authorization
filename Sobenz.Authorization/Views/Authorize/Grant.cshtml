@@ -2,7 +2,7 @@
 @model Sobenz.Authorization.Models.GrantPermissionsViewModel
 
 @{ 
-    var name = @User.Claims.FirstOrDefault(c => c.Type == "FullName")?.Value ?? "User";
+    var name = @User.Claims.FirstOrDefault(c => c.Type == CustomClaims.FullName)?.Value ?? "User";
     var app = Model.RequestingApplication;
     var req = Model.AuthorizationRequest;
     var implicitScopes = req.Scopes.Intersect(Scopes.ImplicitGrantScopes);
@@ -32,7 +32,7 @@
     </p>
     }
     <form method="post" asp-controller="authorize" asp-action="login" asp-route-response_type="@req.ResponseType" asp-route-client_id="@req.ClientId" 
-          asp-route-redirect_uri="@req.RedirectUri" asp-route-state="@req.State" asp-route-code_challenge="req.CodeChallenge" 
+          asp-route-redirect_uri="@req.RedirectUri" asp-route-state="@req.State" asp-route-code_challenge="@req.CodeChallenge" 
           asp-route-code_challenge_method="@req.CodeChallengeMethod" asp-route-scope="@Model.AuthorizationRequest.Scopes.Aggregate((e,n) => $"{e} {n}")"
           asp-route-nonce="@req.Nonce">
         <p>
@@ -41,7 +41,7 @@
         </p>
     </form>
     <form method="post" asp-controller="authorize" asp-action="logout"  asp-route-response_type="@req.ResponseType" asp-route-client_id="@req.ClientId" 
-          asp-route-redirect_uri="@req.RedirectUri" asp-route-state="@req.State" asp-route-code_challenge="req.CodeChallenge" 
+          asp-route-redirect_uri="@req.RedirectUri" asp-route-state="@req.State" asp-route-code_challenge="@req.CodeChallenge" 
           asp-route-code_challenge_method="@req.CodeChallengeMethod" asp-route-scope="@Model.AuthorizationRequest.Scopes.Aggregate((e,n) => $"{e} {n}")"
           asp-route-nonce="@req.Nonce">
         <p>If you are not '@name' then please click here to logout and to return to the login page.</p>

@@ -78,20 +78,8 @@ namespace Sobenz.ServerTestApp
                 opts.UsePkce = true;
                 opts.Scope.Add("merchant");
                 opts.RequireHttpsMetadata = true;
-                opts.TokenValidationParameters.ValidAudience = "https://localhost:44328";
+                opts.TokenValidationParameters.ValidAudience = "00000000-0000-0000-0000-000000000001";
                 opts.TokenValidationParameters.ValidIssuer = "https://sobenz.com";
-                opts.Events.OnTokenResponseReceived = (ctx) =>
-                {
-                    return Task.CompletedTask;
-                };
-                opts.Events.OnTokenResponseReceived = (ctx) =>
-                {
-                    return Task.CompletedTask;
-                };
-                opts.Events.OnTokenValidated = (ctx) =>
-                {
-                    return Task.CompletedTask;
-                };
             });
 
             services.AddAuthorization(options =>
