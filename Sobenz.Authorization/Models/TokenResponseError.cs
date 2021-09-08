@@ -11,6 +11,9 @@ namespace Sobenz.Authorization.Models
         [EnumMember(Value = "access_denied")]
         AccessDenied,
 
+        [EnumMember(Value = "internal_server_error")]
+        InternalServerError,
+
         [EnumMember(Value = "invalid_client")]
         InvalidClient,
 

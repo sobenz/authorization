@@ -5,47 +5,69 @@
     var name = @User.Claims.FirstOrDefault(c => c.Type == CustomClaims.FullName)?.Value ?? "User";
     var app = Model.RequestingApplication;
     var req = Model.AuthorizationRequest;
-    var implicitScopes = req.Scopes.Intersect(Scopes.ImplicitGrantScopes);
     var explicitScopes = req.Scopes.Intersect(Scopes.ExplicitGrantScopes);
 }
-<html>
-<head>
-    <meta name="viewport" content="width=device-width" />
-    <title>Grant Permissions</title>
-</head>
-<body>
-    <h3>@app.Name is requesting access to your account.</h3>
-    @if (explicitScopes.Any())
-    {
-    <p>Welcome @name the following scopes are being requested:</p>
-    <p>
-        <ul>
-            @foreach (var scope in explicitScopes)
-            {
-                <li>@scope</li>
-            }
-            @if(implicitScopes.Any())
-            {
-                <li>Call API's on your behalf.</li>
-            }
-        </ul>
-    </p>
-    }
-    <form method="post" asp-controller="authorize" asp-action="login" asp-route-response_type="@req.ResponseType" asp-route-client_id="@req.ClientId" 
-          asp-route-redirect_uri="@req.RedirectUri" asp-route-state="@req.State" asp-route-code_challenge="@req.CodeChallenge" 
-          asp-route-code_challenge_method="@req.CodeChallengeMethod" asp-route-scope="@Model.AuthorizationRequest.Scopes.Aggregate((e,n) => $"{e} {n}")"
-          asp-route-nonce="@req.Nonce">
-        <p>
-            <input type="submit" value="Accept">
-            <input type="hidden" name="action" value="grant" />
-        </p>
-    </form>
-    <form method="post" asp-controller="authorize" asp-action="logout"  asp-route-response_type="@req.ResponseType" asp-route-client_id="@req.ClientId" 
-          asp-route-redirect_uri="@req.RedirectUri" asp-route-state="@req.State" asp-route-code_challenge="@req.CodeChallenge" 
-          asp-route-code_challenge_method="@req.CodeChallengeMethod" asp-route-scope="@Model.AuthorizationRequest.Scopes.Aggregate((e,n) => $"{e} {n}")"
-          asp-route-nonce="@req.Nonce">
-        <p>If you are not '@name' then please click here to logout and to return to the login page.</p>
-        <p><input type="submit" value="Logout" /><input type="hidden" name="action" value="logout" /></p>
-    </form>
-</body>
-</html>
+
+<div class="row">
+    <div class="col-md-5 mx-auto">
+        <div class="card m-4">
+            <div class="card-header">
+                <div class="row">
+                    <div class="col">
+                        <center>
+                            <img src="~/img/general-user.png"/>
+                        </center>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col">
+                        <center>
+                            <h3>Access Requested</h3>
+                        </center>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col">
+                        <p>@app.Name is requesting access to your account.</p>
+                        <p>Welcome @name the following scopes are being requested:</p>
+                        <ul>
+                        @foreach (var scope in explicitScopes)
+                        {
+                            <li>@scope</li>
+                        }
+                        </ul>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col">
+                        <form method="post" asp-controller="authorize" asp-action="login" asp-route-response_type="@req.ResponseType" asp-route-client_id="@req.ClientId"
+                              asp-route-redirect_uri="@req.RedirectUri" asp-route-state="@req.State" asp-route-code_challenge="@req.CodeChallenge"
+                              asp-route-code_challenge_method="@req.CodeChallengeMethod" asp-route-scope="@Model.AuthorizationRequest.Scopes.Aggregate((e,n) => $"{e} {n}")"
+                              asp-route-nonce="@req.Nonce">
+                            <div class="d-grid m-2">
+                                <input type="hidden" name="action" value="grant" />
+                                <button type="submit" class="btn btn-primary btn-lg">Accept</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col">
+                        <form method="post" asp-controller="authorize" asp-action="logout" asp-route-response_type="@req.ResponseType" asp-route-client_id="@req.ClientId"
+                              asp-route-redirect_uri="@req.RedirectUri" asp-route-state="@req.State" asp-route-code_challenge="@req.CodeChallenge"
+                              asp-route-code_challenge_method="@req.CodeChallengeMethod" asp-route-scope="@Model.AuthorizationRequest.Scopes.Aggregate((e,n) => $"{e} {n}")"
+                              asp-route-nonce="@req.Nonce">
+                            <div class="d-grid m-2">
+                                <small class="text-secondary mb-1"><em>If you are not '@name' then please click here to logout and to return to the login page.</em></small>
+                                <input type="hidden" name="action" value="logout" />
+                                <button type="submit" class="btn btn-secondary btn-lg">Logout</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

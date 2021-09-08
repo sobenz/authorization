@@ -10,5 +10,6 @@ namespace Sobenz.Authorization.Models
         public TimeSpan IdentityTokenLifetime { get; set; }
         public Uri ConsumerAccessTokenAudience { get; set; }
         public Uri MerchantAccessTokenAudience { get; set; }
+        public bool BypassExplicitGrantScopes { get; set; }
     }
 }

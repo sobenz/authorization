@@ -1,4 +1,5 @@
-﻿using Sobenz.Authorization.Models;
+﻿using Sobenz.Authorization.Common.Models;
+using Sobenz.Authorization.Models;
 using System;
 using System.Collections.Generic;
 using System.Threading;

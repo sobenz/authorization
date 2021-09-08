@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Sobenz.Authorization.Interfaces;
+using Sobenz.Authorization.Common.Interfaces;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,9 +12,9 @@ namespace Sobenz.Authorization.Controllers
     [ApiController]
     public class ApplicationsController : ControllerBase
     {
-        private readonly IApplicationService _applicationService;
+        private readonly IApplicationStore _applicationService;
 
-        public ApplicationsController(IApplicationService applicationService)
+        public ApplicationsController(IApplicationStore applicationService)
         {
             _applicationService = applicationService ?? throw new ArgumentNullException(nameof(applicationService));
         }

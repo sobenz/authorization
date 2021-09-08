@@ -5,7 +5,13 @@ VisualStudioVersion = 16.0.31321.278
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sobenz.Authorization", "Sobenz.Authorization\Sobenz.Authorization.csproj", "{C9D1DABF-E98E-42AE-A012-B17B5607E643}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sobenz.ServerTestApp", "Sobenz.ServerTestApp\Sobenz.ServerTestApp.csproj", "{BE80CA84-26C8-45FA-8D1C-203BD5E96220}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sobenz.ServerTestApp", "Sobenz.ServerTestApp\Sobenz.ServerTestApp.csproj", "{BE80CA84-26C8-45FA-8D1C-203BD5E96220}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sobenz.Authorization.Abstractions", "Sobenz.Authorization.Abstractions\Sobenz.Authorization.Abstractions.csproj", "{489914EF-1122-41BD-ABF1-19339B66CE9D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sobenz.Authorization.Store.Cosmos", "Sobenz.Authorization.Store.Cosmos\Sobenz.Authorization.Store.Cosmos.csproj", "{0D21EC8A-908A-459E-8DA9-A1B22F981E18}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sobenz.Authorization.Common", "Sobenz.Authorization.Common\Sobenz.Authorization.Common.csproj", "{BA4296BE-6817-45CB-A29C-AAD1F73BE090}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +27,18 @@ Global
 		{BE80CA84-26C8-45FA-8D1C-203BD5E96220}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BE80CA84-26C8-45FA-8D1C-203BD5E96220}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BE80CA84-26C8-45FA-8D1C-203BD5E96220}.Release|Any CPU.Build.0 = Release|Any CPU
+		{489914EF-1122-41BD-ABF1-19339B66CE9D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{489914EF-1122-41BD-ABF1-19339B66CE9D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{489914EF-1122-41BD-ABF1-19339B66CE9D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{489914EF-1122-41BD-ABF1-19339B66CE9D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0D21EC8A-908A-459E-8DA9-A1B22F981E18}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0D21EC8A-908A-459E-8DA9-A1B22F981E18}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0D21EC8A-908A-459E-8DA9-A1B22F981E18}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0D21EC8A-908A-459E-8DA9-A1B22F981E18}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BA4296BE-6817-45CB-A29C-AAD1F73BE090}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BA4296BE-6817-45CB-A29C-AAD1F73BE090}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BA4296BE-6817-45CB-A29C-AAD1F73BE090}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BA4296BE-6817-45CB-A29C-AAD1F73BE090}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

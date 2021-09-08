@@ -1,5 +1,8 @@
 ﻿using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Sobenz.Authorization.Abstractions.Models;
+using Sobenz.Authorization.Common.Interfaces;
+using Sobenz.Authorization.Common.Models;
 using Sobenz.Authorization.Interfaces;
 using Sobenz.Authorization.Models;
 using System;
@@ -23,12 +26,12 @@ namespace Sobenz.Authorization.Services
 
         private readonly IOptions<TokenOptions> _tokenOptions;
         private readonly IPasswordHasher _passwordHasher;
-        private readonly IApplicationService _applicationService;
+        private readonly IApplicationStore _applicationService;
         private readonly IAuthorizationCodeService _authorizationCodeService;
         private readonly IRefreshTokenService _refreshTokenService;
-        private readonly IUserService _userService;
+        private readonly IUserStore _userService;
 
-        public AuthorizationManager(IOptions<TokenOptions> tokenOptions, IPasswordHasher passwordHasher, IApplicationService applicationService, IAuthorizationCodeService authorizationCodeService, IRefreshTokenService refreshTokenService, IUserService userService)
+        public AuthorizationManager(IOptions<TokenOptions> tokenOptions, IPasswordHasher passwordHasher, IApplicationStore applicationService, IAuthorizationCodeService authorizationCodeService, IRefreshTokenService refreshTokenService, IUserStore userService)
         {
             //TODO - Read from a cert provider.
             var certStore = new X509Store(StoreName.My, StoreLocation.LocalMachine, OpenFlags.ReadOnly);
@@ -93,10 +96,13 @@ namespace Sobenz.Authorization.Services
             //If the user exists and is active now verify their password.
             if (user != null && (user.State != UserState.Deactivated))
             {
-                var identity = user.Identities.OfType<UserPasswordIdentity>().First(i => i.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
-                var pwdHash = await _passwordHasher.HashPasswordAsync(password, identity.Salt);
-                if (pwdHash == identity.Password)
-                    return AuthorizationOutcome<User>.Succeed(user);
+                var identity = user.Identities.OfType<UserPasswordIdentity>().FirstOrDefault();
+                if (identity != null)
+                {
+                    var pwdHash = await _passwordHasher.HashPasswordAsync(password, identity.Salt);
+                    if (pwdHash == identity.Password)
+                        return AuthorizationOutcome<User>.Succeed(user);
+                }
             }
             return AuthorizationOutcome<User>.Fail(new TokenResponseError(TokenFailureError.AccessDenied), HttpStatusCode.Unauthorized);
         }
@@ -172,13 +178,14 @@ namespace Sobenz.Authorization.Services
         public async Task<AuthorizationOutcome> RefreshAccessTokenAsync(Application application, string token, IEnumerable<string> scopes, int? organisationId, CancellationToken cancellationToken)
         {
             var refreshToken = await _refreshTokenService.RefreshTokenAsync(token, application.Id, scopes, organisationId, cancellationToken);
-            if (token == null)
+            if (refreshToken == null)
                 return AuthorizationOutcome.Fail(new TokenResponseError(TokenFailureError.AccessDenied, "Authentication Failed."), HttpStatusCode.Unauthorized);
 
             //If no scopes are defined fall back to default scopes orginally associated with authorization.
             var activeScopes = scopes ?? refreshToken.Scopes;
 
             string accessToken;
+            string idToken = null;
             if (refreshToken.SubjectType == SubjectType.User)
             {
                 var user = await _userService.GetUserAsync(refreshToken.Subject, cancellationToken);
@@ -186,12 +193,15 @@ namespace Sobenz.Authorization.Services
                 if ((user == null) || (user.State != UserState.Active))
                     return AuthorizationOutcome.Fail(new TokenResponseError(TokenFailureError.AccessDenied, "User is not active."), HttpStatusCode.Unauthorized);
                 accessToken = GenerateSubjectAccessToken(user, application, organisationId, refreshToken.SessionId, activeScopes);
+
+                if (activeScopes.Contains(Scopes.Identity) || activeScopes.Contains(Scopes.OpenId))
+                    idToken = GenerateUserIdentityToken(user, application, string.Empty, activeScopes);
             }
             else
                 accessToken = GenerateSubjectAccessToken(application, null, organisationId, refreshToken.SessionId, activeScopes);
 
             int expirationSeconds = (int)TimeSpan.FromMinutes(5).TotalSeconds;
-            return AuthorizationOutcome.Succeed(new TokenResponseSuccess(TokenResponseType.AccessToken, accessToken, refreshToken.Token, expirationSeconds, activeScopes));
+            return AuthorizationOutcome.Succeed(new TokenResponseSuccess(TokenResponseType.AccessToken, accessToken, refreshToken.Token, expirationSeconds, activeScopes, idToken));
         }
 
         private string GenerateSubjectAccessToken(Subject subject, Application clientApplication, int? organisationId, Guid sessionId, IEnumerable<string> scopes)

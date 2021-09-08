@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.Options;
 using SimpleBase;
-using Sobenz.Authorization.Interfaces;
+using Sobenz.Authorization.Abstractions.Models;
+using Sobenz.Authorization.Common.Interfaces;
+using Sobenz.Authorization.Common.Models;
 using Sobenz.Authorization.Models;
 using System;
 using System.Collections.Generic;
@@ -13,17 +15,16 @@ namespace Sobenz.Authorization.Services
 {
     internal class PersistedTokenService : IRefreshTokenService, IAuthorizationCodeService
     {
-        private readonly List<RefreshToken> _refreshTokens = new List<RefreshToken>();
-        private readonly List<AuthorizationCode> _authorizationCodes = new List<AuthorizationCode>();
-
         private readonly IOptions<PersistedTokenOptions> _persistedTokenOptions;
+        private readonly ITokenStore _tokenStore;
 
-        public PersistedTokenService(IOptions<PersistedTokenOptions> persistedTokenOptions)
+        public PersistedTokenService(IOptions<PersistedTokenOptions> persistedTokenOptions, ITokenStore tokenStore)
         {
             _persistedTokenOptions = persistedTokenOptions ?? throw new ArgumentNullException(nameof(persistedTokenOptions));
+            _tokenStore = tokenStore ?? throw new ArgumentNullException(nameof(tokenStore));
         }
 
-        public Task<string> CreateAuthorizationCodeAsync(Guid clientId, Guid grantingUserId, string redirectionUri, IEnumerable<string> grantedScopes, string codeChallenge, CodeChallengeMethod? codeChallengeMethod, string nonce, CancellationToken cancellationToken = default)
+        public async Task<string> CreateAuthorizationCodeAsync(Guid clientId, Guid grantingUserId, string redirectionUri, IEnumerable<string> grantedScopes, string codeChallenge, CodeChallengeMethod? codeChallengeMethod, string nonce, CancellationToken cancellationToken = default)
         {
             var authorizationCode = new AuthorizationCode
             {
@@ -31,17 +32,17 @@ namespace Sobenz.Authorization.Services
                 ClientId = clientId,
                 GrantingUserId = grantingUserId,
                 RedirectionUri = redirectionUri,
-                GrantedScopes = grantedScopes ?? new string[0],
+                GrantedScopes = grantedScopes ?? Array.Empty<string>(),
                 ExpiresUtc = DateTime.Now.Add(_persistedTokenOptions.Value.AuthorizationCodeLifetime),
                 CodeChallenge = codeChallenge,
                 CodeChallengeMethod = codeChallengeMethod,
                 Nonce = nonce
             };
-            _authorizationCodes.Add(authorizationCode);
-            return Task.FromResult(authorizationCode.Code);
+            await _tokenStore.UpsertTokenAsync(authorizationCode.Code, authorizationCode, _persistedTokenOptions.Value.AuthorizationCodeLifetime, cancellationToken);
+            return authorizationCode.Code;
         }
 
-        public Task<RefreshTokenIdentifier> CreateTokenAsync(SubjectType subjectType, Guid subject, Guid? clientId, IEnumerable<string> grantedScopes, int? organisationContext = null, CancellationToken cancellationToken = default)
+        public async Task<RefreshTokenIdentifier> CreateTokenAsync(SubjectType subjectType, Guid subject, Guid? clientId, IEnumerable<string> grantedScopes, int? organisationContext = null, CancellationToken cancellationToken = default)
         {
             string token = GenerateNewToken();
 
@@ -51,68 +52,70 @@ namespace Sobenz.Authorization.Services
                 SubjectType = subjectType,
                 Subject = subject,
                 ClientId = clientId,
-                Scopes = new List<string>(grantedScopes ?? new string[0]),
+                Scopes = new List<string>(grantedScopes ?? Array.Empty<string>()),
                 LastUsedOrganisationContext = organisationContext,
                 ExpiresUtc = DateTime.UtcNow.Add(_persistedTokenOptions.Value.RefreshTokenLifetime),
                 SessionId = Guid.NewGuid()
             };
-            _refreshTokens.Add(refreshToken);
-
-            return Task.FromResult<RefreshTokenIdentifier>(refreshToken);
+            await _tokenStore.UpsertTokenAsync(refreshToken.Token, refreshToken, _persistedTokenOptions.Value.RefreshTokenLifetime, cancellationToken);
+            return refreshToken;
         }
 
-        public Task<RefreshTokenIdentifier> RefreshTokenAsync(string token, Guid? clientId, IEnumerable<string> requestedScopes, int? organisationContext, CancellationToken cancellationToken = default)
+        public async Task<RefreshTokenIdentifier> RefreshTokenAsync(string token, Guid? clientId, IEnumerable<string> requestedScopes, int? organisationContext, CancellationToken cancellationToken = default)
         {
-            var refreshToken = _refreshTokens.FirstOrDefault(t => t.Token.Equals(token, StringComparison.OrdinalIgnoreCase));
-            if (refreshToken?.ExpiresUtc <= DateTime.UtcNow)
-                _refreshTokens.Remove(refreshToken);
+            var refreshToken = await _tokenStore.GetTokenAsync<RefreshToken>(token, cancellationToken);
 
             if ((refreshToken != null) && (refreshToken.ExpiresUtc > DateTime.UtcNow) && (!clientId.HasValue || (clientId == refreshToken.ClientId)))
             {
-                if (requestedScopes.All(scope => refreshToken.Scopes.Contains(scope, StringComparer.OrdinalIgnoreCase)))
+                if ((requestedScopes == null) || requestedScopes.All(scope => refreshToken.Scopes.Contains(scope, StringComparer.OrdinalIgnoreCase)))
                 {
                     if (refreshToken.SubjectType == SubjectType.User)
                     {
                         refreshToken.Token = GenerateNewToken();
                     }
-                    //if(!forceRefresh) Update expiration time.
-                    refreshToken.ExpiresUtc = DateTime.UtcNow.Add(_persistedTokenOptions.Value.RefreshTokenLifetime);
+                    if(_persistedTokenOptions.Value.SlidingTokens) //Update expiration time.
+                        refreshToken.ExpiresUtc = DateTime.UtcNow.Add(_persistedTokenOptions.Value.RefreshTokenLifetime);
 
-                    //Generate a new session if outside 2x refresh window.
+                    //Generate a new session if outside session window.
                     if (refreshToken.LastRefreshUtc.HasValue && (DateTime.UtcNow.Subtract(refreshToken.LastRefreshUtc.Value) > _persistedTokenOptions.Value.UserSessionLifetime))
                     {
                         refreshToken.SessionId = Guid.NewGuid();
                     }
                     refreshToken.LastRefreshUtc = DateTime.UtcNow;
-                    //Save Refresh Token Now
-                    return Task.FromResult<RefreshTokenIdentifier>(refreshToken);
+
+                    if ((refreshToken.SubjectType == SubjectType.User) && _persistedTokenOptions.Value.RotateUserRefreshTokens)
+                    {
+                        refreshToken.Token = GenerateNewToken();
+                        await _tokenStore.DeleteTokenAsync<RefreshToken>(token, cancellationToken);
+                    }
+
+                    await _tokenStore.UpsertTokenAsync(refreshToken.Token, refreshToken, _persistedTokenOptions.Value.RefreshTokenLifetime, cancellationToken);
+                    return refreshToken;
                 }
             }
-            return Task.FromResult<RefreshTokenIdentifier>(null);
+            return null;
         }
 
-        public Task<AuthorizationCode> ValidateCodeAsync(string authorizationCode, CancellationToken cancellationToken = default)
+        public async Task<AuthorizationCode> ValidateCodeAsync(string authorizationCode, CancellationToken cancellationToken = default)
         {
-            var codeEntity = _authorizationCodes.FirstOrDefault(t => t.Code.Equals(authorizationCode, StringComparison.OrdinalIgnoreCase));
+            var codeEntity = await _tokenStore.GetTokenAsync<AuthorizationCode>(authorizationCode, cancellationToken);
             if (codeEntity != null)
             {
                 //Always Remove on Retrieval -- Single Use
-                _authorizationCodes.Remove(codeEntity);
+                await _tokenStore.DeleteTokenAsync<AuthorizationCode>(authorizationCode, cancellationToken);
                 if (codeEntity.ExpiresUtc > DateTime.UtcNow)
-                    return Task.FromResult(codeEntity);
+                    return codeEntity;
             }
-            return Task.FromResult<AuthorizationCode>(null);
+            return null;
         }
 
-        private string GenerateNewToken()
+        private static string GenerateNewToken()
         {
-            
-            using (RandomNumberGenerator rng = new RNGCryptoServiceProvider())
-            {
-                var data = new byte[32];
-                rng.GetBytes(data);
-                return Base58.Ripple.Encode(data);
-            }
+
+            using RandomNumberGenerator rng = new RNGCryptoServiceProvider();
+            var data = new byte[32];
+            rng.GetBytes(data);
+            return Base58.Ripple.Encode(data);
         }
     }
 }

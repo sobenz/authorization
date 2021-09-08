@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
+using Sobenz.Authorization.Common.Interfaces;
 using Sobenz.Authorization.Interfaces;
 using Sobenz.Authorization.Models;
 using Sobenz.Authorization.Services;
@@ -29,13 +30,14 @@ namespace Sobenz.Authorization
             services.Configure<TokenOptions>(Configuration.GetSection("TokenSettings"));
             services.Configure<PersistedTokenOptions>(Configuration.GetSection("PersistedTokenSettings"));
 
+            services.AddCosmosIdentityStore(Configuration);
+
             services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
-            services.AddSingleton<IApplicationService, ApplicationService>();
             services.AddSingleton<IAuthorizationManager, AuthorizationManager>();
             services.AddSingleton<PersistedTokenService>();
             services.AddSingleton<IRefreshTokenService>(x => x.GetRequiredService<PersistedTokenService>());
             services.AddSingleton<IAuthorizationCodeService>(x => x.GetRequiredService<PersistedTokenService>());
-            services.AddSingleton<IUserService, UserService>();
+            //services.AddSingleton<IUserStore, UserStore>();
 
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(opts =>

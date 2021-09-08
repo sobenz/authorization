@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Sobenz.Authorization.Common.Models;
+using System;
 
 namespace Sobenz.Authorization.Models
 {

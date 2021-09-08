@@ -1,9 +1,6 @@
 ﻿using Konscious.Security.Cryptography;
 using Sobenz.Authorization.Interfaces;
-using Sobenz.Authorization.Models;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 

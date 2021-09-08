@@ -1,34 +1,18 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Sobenz.Authorization.Abstractions.Models;
 using Sobenz.Authorization.Binders;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
 
 namespace Sobenz.Authorization.Models
 {
-    [JsonConverter(typeof(JsonStringEnumMemberConverter))]
-    public enum ResponseType
-    {
-        [EnumMember(Value = "code")]
-        Code
-    }
-
-    [JsonConverter(typeof(JsonStringEnumMemberConverter))]
-    public enum CodeChallengeMethod
-    {
-        [EnumMember(Value = "S56")]
-        SHA256,
-
-        [EnumMember(Value = "plain")]
-        Plain
-    }
-
     public class AuthorizeRequest
     {
         [Required]
         [BindProperty(Name = "response_type", BinderType = typeof(EnumBinder<ResponseType>))]
+        [JsonConverter(typeof(JsonStringEnumMemberConverter))]
         public ResponseType? ResponseType { get; set; }
 
         [Required]
@@ -49,6 +33,7 @@ namespace Sobenz.Authorization.Models
         public string CodeChallenge { get; set; }
 
         [BindProperty(Name = "code_challenge_method", BinderType = typeof(EnumBinder<CodeChallengeMethod>))]
+        [JsonConverter(typeof(JsonStringEnumMemberConverter))]
         public CodeChallengeMethod? CodeChallengeMethod { get; set; }
 
         [BindProperty(Name = "nonce")]

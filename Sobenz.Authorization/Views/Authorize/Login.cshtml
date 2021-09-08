@@ -1,30 +1,64 @@
 ﻿@model Sobenz.Authorization.Models.AuthorizeRequest
-<html>
-<head>
-    <meta name="viewport" content="width=device-width" />
-    <title>Login</title>
-</head>
-<body>
-    <h3>Login Page</h3>
-    @ViewBag.error
-    <form method="post" asp-controller="authorize" asp-action="login" asp-route-response_type="@Model.ResponseType" asp-route-client_id="@Model.ClientId" asp-route-redirect_uri="@Model.RedirectUri"
-          asp-route-state="@Model.State" asp-route-code_challenge="@Model.CodeChallenge" asp-route-code_challenge_method="@Model.CodeChallengeMethod" asp-route-scope="@Model.Scopes.Aggregate((e,n) => $"{e} {n}")"
-          asp-route-nonce="@Model.Nonce">
-        <table border="0" cellpadding="2" cellspacing="2">
-            <tr>
-                <td>Username</td>
-                <td><input type="text" name="username"></td>
-            </tr>
-            <tr>
-                <td>Password</td>
-                <td><input type="password" name="password"></td>
-            </tr>
-            <tr>
-                <td>&nbsp;</td>
-                <td><input type="submit" value="Login"></td>
-            </tr>
-        </table>
-        <input type="hidden" name="action" value="login" />
-    </form>
-</body>
-</html>
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="exclamation-triangle-fill" fill="currentColor" viewBox="0 0 16 16">
+    <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+  </symbol>
+</svg> 
+<div class="row">
+    <div class="col-md-5 mx-auto">
+        <div class="card m-4">
+            <div class="card-header">
+                <div class="row">
+                    <div class="col">
+                        <center>
+                            <img src="~/img/general-user.png" />
+                        </center>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col">
+                        <center>
+                            <h3>User Login</h3>
+                        </center>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col">
+                        <form method="post" asp-controller="authorize" asp-action="login" asp-route-response_type="@Model.ResponseType" asp-route-client_id="@Model.ClientId" asp-route-redirect_uri="@Model.RedirectUri"
+                              asp-route-state="@Model.State" asp-route-code_challenge="@Model.CodeChallenge" asp-route-code_challenge_method="@Model.CodeChallengeMethod" asp-route-scope="@Model.Scopes.Aggregate((e,n) => $"{e} {n}")"
+                              asp-route-nonce="@Model.Nonce">
+                            <div class="mb-2">
+                                <label for="usernameInput">Username</label>
+                                <input type="text" class="form-control" id="usernameInput" aria-describedby="usernameHelp" placeholder="Enter username" name="username" />
+                                <small id="usernameHelp" class="form-text text-muted">Your username will be your email address you have registered with.</small>
+                            </div>
+                            <div class="mb-2">
+                                <label for="passwordInput">Password</label>
+                                <input type="password" class="form-control" id="passwordInput" placeholder="Password" name="password">
+                            </div>
+                            <input type="hidden" name="action" value="login" />
+                            <div class="d-grid g-2">
+                                <button type="submit" class="btn btn-primary btn-lg">Login</button>
+                            </div>
+                            @if (!string.IsNullOrEmpty(ViewBag.Error))
+                            {
+                            <div class="row mt-2">
+                                <div class="col">
+                                    <div class="alert alert-danger d-flex align-items-center" role="alert">
+                                        <svg class="bi flex-shrink-0 me-2" width="24" height="24" role="img" aria-label="Danger:"><use xlink:href="#exclamation-triangle-fill" /></svg>
+                                        <div>Authentication Failed.</div>
+                                    </div>
+                                </div>
+                            </div>
+                            }
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

@@ -13,9 +13,19 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Sobenz.Authorization.Abstractions\Sobenz.Authorization.Abstractions.csproj" />
+    <ProjectReference Include="..\Sobenz.Authorization.Common\Sobenz.Authorization.Common.csproj" />
+    <ProjectReference Include="..\Sobenz.Authorization.Store.Cosmos\Sobenz.Authorization.Store.Cosmos.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="Cert\SobenzCert.cer">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="wwwroot\img\" />
   </ItemGroup>
 
 </Project>
