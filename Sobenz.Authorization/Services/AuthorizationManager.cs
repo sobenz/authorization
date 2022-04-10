@@ -3,6 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using Sobenz.Authorization.Abstractions.Models;
 using Sobenz.Authorization.Common.Interfaces;
 using Sobenz.Authorization.Common.Models;
+using Sobenz.Authorization.Helpers;
 using Sobenz.Authorization.Interfaces;
 using Sobenz.Authorization.Models;
 using System;
@@ -26,12 +27,12 @@ namespace Sobenz.Authorization.Services
 
         private readonly IOptions<TokenOptions> _tokenOptions;
         private readonly IPasswordHasher _passwordHasher;
-        private readonly IApplicationStore _applicationService;
+        private readonly IClientStore _applicationService;
         private readonly IAuthorizationCodeService _authorizationCodeService;
         private readonly IRefreshTokenService _refreshTokenService;
         private readonly IUserStore _userService;
 
-        public AuthorizationManager(IOptions<TokenOptions> tokenOptions, IPasswordHasher passwordHasher, IApplicationStore applicationService, IAuthorizationCodeService authorizationCodeService, IRefreshTokenService refreshTokenService, IUserStore userService)
+        public AuthorizationManager(IOptions<TokenOptions> tokenOptions, IPasswordHasher passwordHasher, IClientStore applicationService, IAuthorizationCodeService authorizationCodeService, IRefreshTokenService refreshTokenService, IUserStore userService)
         {
             //TODO - Read from a cert provider.
             var certStore = new X509Store(StoreName.My, StoreLocation.LocalMachine, OpenFlags.ReadOnly);
@@ -56,7 +57,7 @@ namespace Sobenz.Authorization.Services
             }
 
             //Check that the application exists and is active.
-            var application = await _applicationService.GetAsync(clientId.Value, cancellationToken);
+            var application = await _applicationService.GetClientAsync(clientId.Value, cancellationToken);
             if ((application == null) || (application.State != ApplicationState.Active))
             {
                 return AuthorizationOutcome<Application>.Fail(new TokenResponseError(TokenFailureError.InvalidClient), HttpStatusCode.Unauthorized);
@@ -79,7 +80,7 @@ namespace Sobenz.Authorization.Services
             }
 
             //Check that any scopes associated with this request have been granted to the application.
-            if ((scopes != null) && !scopes.All(s => application.AllowedScopes.Contains(s, StringComparer.Ordinal)))
+            if ((scopes != null) && !scopes.All(s => application.GrantedScopes.Contains(s, StringComparer.Ordinal)))
             {
                 return AuthorizationOutcome<Application>.Fail(new TokenResponseError(TokenFailureError.InvalidScope, "One or more scopes not allowed."), HttpStatusCode.Unauthorized);
             }
@@ -112,10 +113,10 @@ namespace Sobenz.Authorization.Services
             if (!application.IsConfidential)
                 return AuthorizationOutcome.Fail(new TokenResponseError(TokenFailureError.InvalidClient, "Public clients not allowed."), HttpStatusCode.BadRequest);
 
-            if (!application.AllowedScopes.Contains(Scopes.Merchant))
+            if (!application.GrantedScopes.Contains(Scopes.Merchant))
                 return AuthorizationOutcome.Fail(new TokenResponseError(TokenFailureError.InvalidClient, "Client has not been granted correct scopes"), HttpStatusCode.Forbidden);
             
-            var refreshToken = await _refreshTokenService.CreateTokenAsync(SubjectType.Application, application.Id, null, scopes, organisationId, cancellationToken);
+            var refreshToken = await _refreshTokenService.CreateTokenAsync(SubjectType.Application, application.Id, application.Id, scopes, organisationId, cancellationToken);
             var accessToken = GenerateSubjectAccessToken(application, null, organisationId, refreshToken.SessionId, scopes);
 
             int expirationSeconds = (int)TimeSpan.FromMinutes(5).TotalSeconds;
@@ -150,7 +151,7 @@ namespace Sobenz.Authorization.Services
             var accessToken = GenerateSubjectAccessToken(user, application, organisationId, refreshToken.SessionId, activeScopes);
 
             string idToken = null;
-            if (activeScopes.Contains(Scopes.Identity) || activeScopes.Contains(Scopes.OpenId))
+            if (activeScopes.Contains(Scopes.OpenId))
                 idToken = GenerateUserIdentityToken(user, application, code.Nonce, activeScopes);
 
             int expirationSeconds = (int)TimeSpan.FromMinutes(5).TotalSeconds;
@@ -194,7 +195,7 @@ namespace Sobenz.Authorization.Services
                     return AuthorizationOutcome.Fail(new TokenResponseError(TokenFailureError.AccessDenied, "User is not active."), HttpStatusCode.Unauthorized);
                 accessToken = GenerateSubjectAccessToken(user, application, organisationId, refreshToken.SessionId, activeScopes);
 
-                if (activeScopes.Contains(Scopes.Identity) || activeScopes.Contains(Scopes.OpenId))
+                if (activeScopes.Contains(Scopes.OpenId))
                     idToken = GenerateUserIdentityToken(user, application, string.Empty, activeScopes);
             }
             else
@@ -222,15 +223,22 @@ namespace Sobenz.Authorization.Services
                 claims.Add(new Claim(CustomClaims.OrganisationId, $"{organisationId}"));
 
             //If you are asking for the merchant scope, roles associated to the subjects current context are added as claims.
-            string audience = _tokenOptions.Value.ConsumerAccessTokenAudience.ToString();
-            if ((scopes != null) && scopes.Contains(Scopes.Merchant))
+            string audience = _tokenOptions.Value.ConsumerAccessTokenAudience;
+            if (scopes != null)
             {
-                audience = _tokenOptions.Value.MerchantAccessTokenAudience.ToString();
-                var roles = (organisationId.HasValue && subject.ContextualRoles.ContainsKey(organisationId.Value))
-                    ? subject.GlobalRoles.Union(subject.ContextualRoles[organisationId.Value])
-                    : subject.GlobalRoles;
-                foreach (var role in roles)
-                    claims.Add(new Claim(ClaimTypes.Role, role));
+                if (scopes.Contains(Scopes.ClientRegistration))
+                {
+                    claims.Add(new Claim(CustomClaims.SecurityContext, SecurityHelper.SecurityContexts.ClientRegistration));
+                }
+                if (scopes.Contains(Scopes.Merchant))
+                {
+                    audience = _tokenOptions.Value.MerchantAccessTokenAudience;
+                    var roles = (organisationId.HasValue && subject.ContextualRoles.ContainsKey(organisationId.Value))
+                        ? subject.GlobalRoles.Union(subject.ContextualRoles[organisationId.Value])
+                        : subject.GlobalRoles;
+                    foreach (var role in roles)
+                        claims.Add(new Claim(ClaimTypes.Role, role));
+                }
             }
 
             TimeSpan expiration = subject.SubjectType == SubjectType.Application ? _tokenOptions.Value.ApplicationAccessTokenLifetime : _tokenOptions.Value.UserAccessTokenLifetime;

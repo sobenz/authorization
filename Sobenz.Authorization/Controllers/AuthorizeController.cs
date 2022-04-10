@@ -21,12 +21,12 @@ namespace Sobenz.Authorization.Controllers
     [Route("authorize")]
     public class AuthorizeController : Controller
     {
-        private readonly IApplicationStore _applicationService;
+        private readonly IClientStore _applicationService;
         private readonly IAuthorizationCodeService _authorizationCodeService;
         private readonly IAuthorizationManager _authorizationManager;
         private readonly IOptions<TokenOptions> _tokenOptions;
 
-        public AuthorizeController(IApplicationStore applicationService, IAuthorizationManager authorizationManager, IAuthorizationCodeService authorizationCodeService, IOptions<TokenOptions> tokenOptions)
+        public AuthorizeController(IClientStore applicationService, IAuthorizationManager authorizationManager, IAuthorizationCodeService authorizationCodeService, IOptions<TokenOptions> tokenOptions)
         {
             _applicationService = applicationService ?? throw new ArgumentNullException(nameof(applicationService));
             _authorizationCodeService = authorizationCodeService ?? throw new ArgumentNullException(nameof(authorizationCodeService));
@@ -40,7 +40,7 @@ namespace Sobenz.Authorization.Controllers
         {
             if (!ModelState.IsValid)
                 return View("error"); //Missing required parameters
-            var application = await _applicationService.GetAsync(authorizeRequest.ClientId.Value, cancellationToken);
+            var application = await _applicationService.GetClientAsync(authorizeRequest.ClientId.Value, cancellationToken);
 
             if (application == null)
                 return View("error"); //Invalid client
@@ -48,7 +48,7 @@ namespace Sobenz.Authorization.Controllers
             if (!application.IsConfidential && (string.IsNullOrEmpty(authorizeRequest.CodeChallenge) || !authorizeRequest.CodeChallengeMethod.HasValue))
                 return View("error"); //Public client without PKCE Code challenge
 
-            if (authorizeRequest.Scopes.Any(scope => !application.AllowedScopes.Contains(scope)))
+            if (authorizeRequest.Scopes.Intersect(Scopes.ExplicitGrantScopes).Any(scope => !application.UserAccessibleScopes.Contains(scope)))
                 return View("error"); //Application not allowed Scopes being requested.
 
             if (User.Identity.IsAuthenticated)
@@ -142,7 +142,7 @@ namespace Sobenz.Authorization.Controllers
                 return Redirect(url);
             }
 
-            var app = await _applicationService.GetAsync(authorizeRequest.ClientId.Value, cancellationToken);
+            var app = await _applicationService.GetClientAsync(authorizeRequest.ClientId.Value, cancellationToken);
             var viewModel = new GrantPermissionsViewModel { RequestingApplication = app, AuthorizationRequest = authorizeRequest };
             return View("grant", viewModel);
         }

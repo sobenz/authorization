@@ -23,7 +23,7 @@ namespace Sobenz.Authorization.Controllers
             {
                 Issuer  = "https://sobenz.com",
                 AuthorizationEndpoint = "https://localhost:44311/authorize",
-                TokenEndpoint = "https://localhost:44311/api/token",
+                TokenEndpoint = "https://localhost:44311/token",
                 //UserInfoEndpoint = "",
                 JwksUri = "https://localhost:44311/jwks",
                 //RegistrationEndpoint = "",

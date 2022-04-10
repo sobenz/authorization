@@ -8,8 +8,8 @@ namespace Sobenz.Authorization.Models
         public TimeSpan UserAccessTokenLifetime { get; set; }
         public TimeSpan ApplicationAccessTokenLifetime { get; set; }
         public TimeSpan IdentityTokenLifetime { get; set; }
-        public Uri ConsumerAccessTokenAudience { get; set; }
-        public Uri MerchantAccessTokenAudience { get; set; }
+        public string ConsumerAccessTokenAudience { get; set; }
+        public string MerchantAccessTokenAudience { get; set; }
         public bool BypassExplicitGrantScopes { get; set; }
     }
 }

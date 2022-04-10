@@ -19,6 +19,8 @@ namespace Sobenz.Authorization.Store.Cosmos
 
         public async Task DeleteTokenAsync<TToken>(string tokenKey, CancellationToken cancellationToken = default)
         {
+            if ((tokenKey == null) || (tokenKey.Length < 4))
+                return;
             await _tokenContainer.DeleteItemAsync<CosmosTokenModel<TToken>>(tokenKey, new PartitionKey(GenerateTokenPartitionKey(tokenKey)), cancellationToken: cancellationToken);
         }
 
@@ -26,6 +28,8 @@ namespace Sobenz.Authorization.Store.Cosmos
         {
             try
             {
+                if ((tokenKey == null) || (tokenKey.Length < 4))
+                    return default(TToken);
                 var response = await _tokenContainer.ReadItemAsync<CosmosTokenModel<TToken>>(tokenKey, new PartitionKey(GenerateTokenPartitionKey(tokenKey)), cancellationToken: cancellationToken);
                 return response.Resource.Token;
             }

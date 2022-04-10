@@ -23,7 +23,7 @@ namespace Sobenz.Authorization.Common.Models
         public string LastName { get; set; }
         public string EmailAddress { get; set; }
         public bool EmailVerified { get; set; }
-        public DateTime DateOfBirth { get; set; }
+        public DateTime? DateOfBirth { get; set; }
 
         [JsonConverter(typeof(IdentityConverter))]
         public IEnumerable<UserIdentity> Identities { get; set; }

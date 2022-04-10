@@ -4,6 +4,7 @@ using Sobenz.Authorization.Common.Interfaces;
 using Sobenz.Authorization.Store.Cosmos.Models;
 using System;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using IdentityUser = Sobenz.Authorization.Common.Models.User;
@@ -21,8 +22,15 @@ namespace Sobenz.Authorization.Store.Cosmos
 
         public async Task<IdentityUser> GetUserAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            var user = await _userContainer.ReadItemAsync<CosmosUserModel>(id.ToString(), new PartitionKey(id.ToString()), cancellationToken: cancellationToken);
-            return CosmosUserModel.ToDomainModel(user);
+            try
+            {
+                var user = await _userContainer.ReadItemAsync<CosmosUserModel>(id.ToString(), new PartitionKey(id.ToString()), cancellationToken: cancellationToken);
+                return CosmosUserModel.ToDomainModel(user);
+            }
+            catch(CosmosException ce) when (ce.StatusCode == HttpStatusCode.NotFound)
+            {
+                return null;
+            }
         }
 
         public async Task<IdentityUser> GetUserByUsernameAsync(string username, CancellationToken cancellationToken = default)

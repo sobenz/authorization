@@ -12,6 +12,8 @@ namespace Sobenz.Authorization.Common.Models
 
         public Guid Id { get; init; }
         public SubjectType SubjectType { get; init; }
+        public DateTime? Created { get; set; }
+        public DateTime? LastModified { get; set; }
         public IEnumerable<string> GlobalRoles { get; set; }
         public IDictionary<int, IEnumerable<string>> ContextualRoles { get; set; }
     }

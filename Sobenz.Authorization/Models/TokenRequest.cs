@@ -2,6 +2,9 @@
 using Sobenz.Authorization.Binders;
 using Sobenz.Authorization.Helpers;
 using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
 
@@ -25,12 +28,14 @@ namespace Sobenz.Authorization.Models
         RefreshToken
     }
 
-    public class TokenRequest
+    public class TokenRequest : IValidatableObject
     {
+        [Required]
         [JsonPropertyName("grant_type")]
         [BindProperty(Name = "grant_type", BinderType = typeof(EnumBinder<GrantType>))]
         public GrantType GrantType { get; set; }
 
+        [Required]
         [JsonPropertyName("client_id")]
         [BindProperty(Name = "client_id", BinderType = typeof(ClientBinder))]
         public Guid? ClientId { get; set; }
@@ -71,5 +76,28 @@ namespace Sobenz.Authorization.Models
         [JsonPropertyName("organisation_id")]
         [BindProperty(Name = "organisation_id")]
         public int? OrganisationId { get; set; }
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            List<ValidationResult> validationErrors = new List<ValidationResult>();
+            switch (GrantType)
+            {
+                case GrantType.Password:
+                    if (string.IsNullOrWhiteSpace(Username))
+                        validationErrors.Add(new ValidationResult(string.Format(Errors.MissingTokenRequestParameters, "username", GrantType), new[] { nameof(Username) }));
+                    if (string.IsNullOrWhiteSpace(Password))
+                        validationErrors.Add(new ValidationResult(string.Format(Errors.MissingTokenRequestParameters, "password", GrantType), new[] { nameof(Password) }));
+                    break;
+                case GrantType.AuthorizationCode:
+                    if (string.IsNullOrWhiteSpace(Code))
+                        validationErrors.Add(new ValidationResult(string.Format(Errors.MissingTokenRequestParameters, "code", GrantType), new[] { nameof(Code) }));
+                    break;
+                case GrantType.RefreshToken:
+                    if (string.IsNullOrWhiteSpace(RefreshToken))
+                        validationErrors.Add(new ValidationResult(string.Format(Errors.MissingTokenRequestParameters, "refresh_token", GrantType), new[] { nameof(RefreshToken) }));
+                    break;
+            }
+            return validationErrors;
+        }
     }
 }

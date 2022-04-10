@@ -9,5 +9,6 @@ namespace Sobenz.Authorization.Models
         public const string FullName = "full_name";
         public const string OrganisationId = "organisation_id";
         public const string SessionId = "session_id";
+        public const string SecurityContext = "security_ctx";
     }
 }

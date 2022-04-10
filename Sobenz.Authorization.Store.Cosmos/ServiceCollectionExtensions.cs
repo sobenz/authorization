@@ -24,12 +24,12 @@ namespace Microsoft.Extensions.DependencyInjection
                     .Build();
                 return client;
             });
-            services.AddSingleton<IApplicationStore>(sp =>
+            services.AddSingleton<IClientStore>(sp =>
             {
                 var config = sp.GetRequiredService<IOptions<CosmosStoreOptions>>();
                 var client = sp.GetRequiredService<CosmosClient>();
                 var container = client.GetContainer(config.Value.DatabaseName, ApplicationContainerName);
-                var appStore = new CosmosApplicationStore(container);
+                var appStore = new CosmosClientStore(container);
                 return appStore;
             });
             services.AddSingleton<ITokenStore>(sp =>

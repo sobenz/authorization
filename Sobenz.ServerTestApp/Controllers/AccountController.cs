@@ -11,6 +11,7 @@ namespace Sobenz.ServerTestApp.Controllers
     public class AccountController : Controller
     {
         [ActionName("LogOut")]
+        [HttpPost]
         public async Task<IActionResult> LogOut()
         {
             await HttpContext.SignOutAsync();

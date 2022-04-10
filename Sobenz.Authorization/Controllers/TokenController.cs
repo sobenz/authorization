@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 namespace Sobenz.Authorization.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("[controller]")]
     public class TokenController : ControllerBase
     {
         private readonly IAuthorizationManager _authorizationManager;

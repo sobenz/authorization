@@ -1,4 +1,5 @@
-﻿using Sobenz.Authorization.Common.Models;
+﻿using Newtonsoft.Json;
+using Sobenz.Authorization.Common.Models;
 using System;
 using System.Collections.Generic;
 
@@ -10,16 +11,22 @@ namespace Sobenz.Authorization.Store.Cosmos.Models
         public string Username { get; set; }
         public string FirstName { get; set; }
         public string LastName { get; set; }
-        public DateTime DateOfBirth { get; set; }
+        public DateTime? DateOfBirth { get; set; }
         public string EmailAddress { get; set; }
         public bool EmailVerified { get; set; }
         public UserState State { get; set; }
+        public DateTime? Created { get; set; }
+        [JsonProperty("_ts")]
+        public long? LastModifiedTimestamp { get; set; }
         public IEnumerable<string> GlobalRoles { get; set; }
         public IDictionary<int, IEnumerable<string>> ContextualRoles { get; set; }
         public IList<dynamic> Identities { get; set; }
 
         public static User ToDomainModel(CosmosUserModel cosmosModel)
         {
+            if (cosmosModel == null)
+                return null;
+
             var result = new User
             {
                 Id = cosmosModel.Id,
@@ -30,6 +37,8 @@ namespace Sobenz.Authorization.Store.Cosmos.Models
                 EmailAddress = cosmosModel.EmailAddress,
                 EmailVerified = cosmosModel.EmailVerified,
                 State = cosmosModel.State,
+                Created = cosmosModel.Created,
+                LastModified = cosmosModel.LastModifiedTimestamp.HasValue ? DateTimeOffset.FromUnixTimeSeconds(cosmosModel.LastModifiedTimestamp.Value).UtcDateTime : null,
                 GlobalRoles = cosmosModel.GlobalRoles,
                 ContextualRoles = cosmosModel.ContextualRoles,
             };
