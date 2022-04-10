@@ -6,11 +6,11 @@ using System.Threading.Tasks;
 
 namespace Sobenz.Authorization.Common.Models
 {
-    public class ApplicationSummary
+    public class ClientSummary
     {
         public Guid Id { get; set; }
         public string Name { get; set; }
-        public ApplicationState State { get; set; }
+        public ClientState State { get; set; }
         public DateTime Created { get; set; }
         public DateTime LastModified { get; set; }
     }

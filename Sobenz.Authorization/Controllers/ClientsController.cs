@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Sobenz.Authorization.Helpers;
+using Sobenz.Authorization.Interfaces;
 using Sobenz.Authorization.Models;
 using System;
 using System.Threading;
@@ -13,6 +14,13 @@ namespace Sobenz.Authorization.Controllers
     [ApiController]
     public class ClientsController : ControllerBase
     {
+        private readonly IClientManager _clientManager;
+
+        public ClientsController(IClientManager clientManager)
+        {
+            _clientManager = clientManager ?? throw new ArgumentNullException(nameof(clientManager));
+        }
+
         [HttpPost]
         [Consumes("application/json")]
         [Authorize(SecurityHelper.PolicyNames.ClientConfigurationPolicy, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]

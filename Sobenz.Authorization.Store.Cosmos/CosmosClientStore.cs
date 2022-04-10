@@ -21,7 +21,7 @@ namespace Sobenz.Authorization.Store.Cosmos
             _clientContainer = clientContainer ?? throw new ArgumentNullException(nameof(clientContainer));
         }
 
-        public async Task<Application> GetClientAsync(Guid clientId, CancellationToken cancellationToken = default)
+        public async Task<Client> GetClientAsync(Guid clientId, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -34,7 +34,7 @@ namespace Sobenz.Authorization.Store.Cosmos
             }
         }
 
-        public async Task<IEnumerable<Application>> ListClientsAsync(CancellationToken cancellationToken = default)
+        public async Task<IEnumerable<Client>> ListClientsAsync(CancellationToken cancellationToken = default)
         {
             var iterator = _clientContainer.GetItemLinqQueryable<CosmosClientModel>().ToFeedIterator();
             return (await iterator.ReadNextAsync(cancellationToken)).Select(m => CosmosClientModel.ToDomainModel(m));

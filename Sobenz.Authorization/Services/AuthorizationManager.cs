@@ -48,19 +48,19 @@ namespace Sobenz.Authorization.Services
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
         }
 
-        public async Task<AuthorizationOutcome<Application>> AuthenticateApplicationAsync(Guid? clientId, string clientSecret, Uri redirectionUrl, IEnumerable<string> scopes, CancellationToken cancellationToken = default)
+        public async Task<AuthorizationOutcome<Client>> AuthenticateApplicationAsync(Guid? clientId, string clientSecret, Uri redirectionUrl, IEnumerable<string> scopes, CancellationToken cancellationToken = default)
         {
             //Ensure that the Client Identifier is a valid Guid
             if (!clientId.HasValue)
             {
-                return AuthorizationOutcome<Application>.Fail(new TokenResponseError(TokenFailureError.InvalidRequest, "Missing or malformed client id."), HttpStatusCode.BadRequest);
+                return AuthorizationOutcome<Client>.Fail(new TokenResponseError(TokenFailureError.InvalidRequest, "Missing or malformed client id."), HttpStatusCode.BadRequest);
             }
 
             //Check that the application exists and is active.
             var application = await _applicationService.GetClientAsync(clientId.Value, cancellationToken);
-            if ((application == null) || (application.State != ApplicationState.Active))
+            if ((application == null) || (application.State != ClientState.Active))
             {
-                return AuthorizationOutcome<Application>.Fail(new TokenResponseError(TokenFailureError.InvalidClient), HttpStatusCode.Unauthorized);
+                return AuthorizationOutcome<Client>.Fail(new TokenResponseError(TokenFailureError.InvalidClient), HttpStatusCode.Unauthorized);
             }
 
             //If we are dealing with a Confidential Client then ensure the Secret Matches
@@ -69,24 +69,24 @@ namespace Sobenz.Authorization.Services
                 var challenge = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(clientSecret ?? string.Empty)));
                 if (!application.Secrets.Any(s => s.SecretHash == challenge && DateTime.UtcNow > s.ActiveFrom && DateTime.UtcNow < s.ActiveTo))
                 {
-                    return AuthorizationOutcome<Application>.Fail(new TokenResponseError(TokenFailureError.InvalidClient), HttpStatusCode.Unauthorized);
+                    return AuthorizationOutcome<Client>.Fail(new TokenResponseError(TokenFailureError.InvalidClient), HttpStatusCode.Unauthorized);
                 }
             }
 
             //If provided, check that the redirection url matches what we have registered against the application.
             if ((redirectionUrl != null) && !application.RedirectionUrls.Contains(redirectionUrl))
             {
-                return AuthorizationOutcome<Application>.Fail(new TokenResponseError(TokenFailureError.AccessDenied, "Invalid redirection url."), HttpStatusCode.Unauthorized);
+                return AuthorizationOutcome<Client>.Fail(new TokenResponseError(TokenFailureError.AccessDenied, "Invalid redirection url."), HttpStatusCode.Unauthorized);
             }
 
             //Check that any scopes associated with this request have been granted to the application.
             if ((scopes != null) && !scopes.All(s => application.GrantedScopes.Contains(s, StringComparer.Ordinal)))
             {
-                return AuthorizationOutcome<Application>.Fail(new TokenResponseError(TokenFailureError.InvalidScope, "One or more scopes not allowed."), HttpStatusCode.Unauthorized);
+                return AuthorizationOutcome<Client>.Fail(new TokenResponseError(TokenFailureError.InvalidScope, "One or more scopes not allowed."), HttpStatusCode.Unauthorized);
             }
 
             //Now we are good to return as a successful authentication of the client.
-            return AuthorizationOutcome<Application>.Succeed(application);
+            return AuthorizationOutcome<Client>.Succeed(application);
         }
 
         public async Task<AuthorizationOutcome<User>> AuthenticateUserAsync(string username, string password, CancellationToken cancellationToken = default)
@@ -108,7 +108,7 @@ namespace Sobenz.Authorization.Services
             return AuthorizationOutcome<User>.Fail(new TokenResponseError(TokenFailureError.AccessDenied), HttpStatusCode.Unauthorized);
         }
 
-        public async Task<AuthorizationOutcome> GenerateApplicationAccessTokenAsync(Application application, IEnumerable<string> scopes, int? organisationId, CancellationToken cancellationToken)
+        public async Task<AuthorizationOutcome> GenerateApplicationAccessTokenAsync(Client application, IEnumerable<string> scopes, int? organisationId, CancellationToken cancellationToken)
         {
             if (!application.IsConfidential)
                 return AuthorizationOutcome.Fail(new TokenResponseError(TokenFailureError.InvalidClient, "Public clients not allowed."), HttpStatusCode.BadRequest);
@@ -116,14 +116,14 @@ namespace Sobenz.Authorization.Services
             if (!application.GrantedScopes.Contains(Scopes.Merchant))
                 return AuthorizationOutcome.Fail(new TokenResponseError(TokenFailureError.InvalidClient, "Client has not been granted correct scopes"), HttpStatusCode.Forbidden);
             
-            var refreshToken = await _refreshTokenService.CreateTokenAsync(SubjectType.Application, application.Id, application.Id, scopes, organisationId, cancellationToken);
+            var refreshToken = await _refreshTokenService.CreateTokenAsync(SubjectType.Client, application.Id, application.Id, scopes, organisationId, cancellationToken);
             var accessToken = GenerateSubjectAccessToken(application, null, organisationId, refreshToken.SessionId, scopes);
 
             int expirationSeconds = (int)TimeSpan.FromMinutes(5).TotalSeconds;
             return AuthorizationOutcome.Succeed(new TokenResponseSuccess(TokenResponseType.AccessToken, accessToken, refreshToken.Token, expirationSeconds, scopes));
         }
 
-        public async Task<AuthorizationOutcome> GenerateUserAccessTokenAsync(Application application, string authorizationCode, string codeVerifier, Uri redirectUri, IEnumerable<string> scopes, int? organisationId, CancellationToken cancellationToken)
+        public async Task<AuthorizationOutcome> GenerateUserAccessTokenAsync(Client application, string authorizationCode, string codeVerifier, Uri redirectUri, IEnumerable<string> scopes, int? organisationId, CancellationToken cancellationToken)
         {
             //TODO Check Failure Scenarios HTTP Status Codes
             if (!application.IsConfidential && string.IsNullOrEmpty(codeVerifier))
@@ -158,7 +158,7 @@ namespace Sobenz.Authorization.Services
             return AuthorizationOutcome.Succeed(new TokenResponseSuccess(TokenResponseType.AccessToken, accessToken, refreshToken.Token, expirationSeconds, scopes, idToken));
         }
 
-        public async Task<AuthorizationOutcome> GenerateUserAccessTokenAsync(Application application, string username, string password, IEnumerable<string> scopes, int? organisationId, CancellationToken cancellationToken)
+        public async Task<AuthorizationOutcome> GenerateUserAccessTokenAsync(Client application, string username, string password, IEnumerable<string> scopes, int? organisationId, CancellationToken cancellationToken)
         {
             if (!application.IsConfidential)
                 return AuthorizationOutcome.Fail(new TokenResponseError(TokenFailureError.InvalidClient, "Public clients not allowed with the Password grant."), HttpStatusCode.BadRequest);
@@ -176,7 +176,7 @@ namespace Sobenz.Authorization.Services
             return AuthorizationOutcome.Succeed(new TokenResponseSuccess(TokenResponseType.AccessToken, accessToken, refreshToken.Token, expirationSeconds, scopes));
         }
 
-        public async Task<AuthorizationOutcome> RefreshAccessTokenAsync(Application application, string token, IEnumerable<string> scopes, int? organisationId, CancellationToken cancellationToken)
+        public async Task<AuthorizationOutcome> RefreshAccessTokenAsync(Client application, string token, IEnumerable<string> scopes, int? organisationId, CancellationToken cancellationToken)
         {
             var refreshToken = await _refreshTokenService.RefreshTokenAsync(token, application.Id, scopes, organisationId, cancellationToken);
             if (refreshToken == null)
@@ -205,7 +205,7 @@ namespace Sobenz.Authorization.Services
             return AuthorizationOutcome.Succeed(new TokenResponseSuccess(TokenResponseType.AccessToken, accessToken, refreshToken.Token, expirationSeconds, activeScopes, idToken));
         }
 
-        private string GenerateSubjectAccessToken(Subject subject, Application clientApplication, int? organisationId, Guid sessionId, IEnumerable<string> scopes)
+        private string GenerateSubjectAccessToken(Subject subject, Client clientApplication, int? organisationId, Guid sessionId, IEnumerable<string> scopes)
         {
             //Default Claims
             var claims = new List<Claim>
@@ -241,13 +241,13 @@ namespace Sobenz.Authorization.Services
                 }
             }
 
-            TimeSpan expiration = subject.SubjectType == SubjectType.Application ? _tokenOptions.Value.ApplicationAccessTokenLifetime : _tokenOptions.Value.UserAccessTokenLifetime;
+            TimeSpan expiration = subject.SubjectType == SubjectType.Client ? _tokenOptions.Value.ApplicationAccessTokenLifetime : _tokenOptions.Value.UserAccessTokenLifetime;
 
             var accessToken = _tokenHandler.CreateEncodedJwt(_tokenOptions.Value.TokenIssuer, audience, new ClaimsIdentity(claims), DateTime.UtcNow, DateTime.UtcNow.Add(expiration), DateTime.UtcNow, _signingCredentials);
             return accessToken;
         }
 
-        private string GenerateUserIdentityToken(User user, Application app, string nonce, IEnumerable<string> scopes)
+        private string GenerateUserIdentityToken(User user, Client app, string nonce, IEnumerable<string> scopes)
         {
             var claims = new List<Claim>
             {

@@ -19,7 +19,7 @@ namespace Sobenz.Authorization.Store.Cosmos.Models
         public string LogoUri { get; set; }
         public string RegistrationAccessToken { get; set; }
         public bool IsConfidential { get; set; }
-        public ApplicationState State { get; set; }
+        public ClientState State { get; set; }
         public IEnumerable<string> GrantedScopes { get; set; }
         public IEnumerable<string> UserAccessibleScopes { get; set; }
         public IEnumerable<string> RedirectionUrls { get; set; }
@@ -27,11 +27,11 @@ namespace Sobenz.Authorization.Store.Cosmos.Models
         public IEnumerable<string> GlobalRoles { get; set; }
         public IDictionary<int, IEnumerable<string>> ContextualRoles { get; set; }
 
-        public static Application ToDomainModel(CosmosClientModel cosmosModel)
+        public static Client ToDomainModel(CosmosClientModel cosmosModel)
         {
             if (cosmosModel == null)
                 return null;
-            var result = new Application
+            var result = new Client
             {
                 Id = cosmosModel.Id,
                 Name = cosmosModel.Name,
@@ -41,7 +41,7 @@ namespace Sobenz.Authorization.Store.Cosmos.Models
                 LastModified = DateTimeOffset.FromUnixTimeSeconds(cosmosModel.LastModifiedTimestamp).UtcDateTime,
                 RedirectionUrls = cosmosModel.RedirectionUrls.Select(u => new Uri(u)),
                 Contacts = cosmosModel.Contacts,
-                LogoUri = cosmosModel.LogoUri,
+                LogoUrl = cosmosModel.LogoUri,
                 RegistrationAccessToken = cosmosModel.RegistrationAccessToken,
                 GrantedScopes = cosmosModel.GrantedScopes,
                 UserAccessibleScopes = cosmosModel.UserAccessibleScopes,
@@ -58,14 +58,14 @@ namespace Sobenz.Authorization.Store.Cosmos.Models
             return result;
         }
 
-        public static CosmosClientModel FromDomainModel(Application client)
+        public static CosmosClientModel FromDomainModel(Client client)
         {
             var result = new CosmosClientModel
             {
                 Id = client.Id,
                 Name = client.Name,
                 IsConfidential = client.IsConfidential,
-                LogoUri = client.LogoUri,
+                LogoUri = client.LogoUrl,
                 RedirectionUrls = client.RedirectionUrls.Select(u => u.ToString()),
                 Contacts = client.Contacts,
                 State = client.State,
