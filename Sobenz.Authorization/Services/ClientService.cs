@@ -27,6 +27,7 @@ namespace Sobenz.Authorization.Services
         public async Task<Client> CreateClientAsync(bool isConfidential, string name, IEnumerable<string> redirectUrls, string logoUrl = null, IEnumerable<string> contacts = null, CancellationToken cancellationToken = default)
         {
             ValidateHasRedirectUrls(redirectUrls);
+            //ValidateScopes
 
             var client = new Client
             {
@@ -35,16 +36,25 @@ namespace Sobenz.Authorization.Services
                 Name = name,
                 RedirectionUrls = redirectUrls?.Select(s => new Uri(s)) ?? Enumerable.Empty<Uri>(),
                 LogoUrl = logoUrl,
-                Contacts = contacts ?? Enumerable.Empty<string>()
+                Contacts = contacts ?? Enumerable.Empty<string>(),
+                //GrantedScopes = 
+                //UserAccessibleScopes = 
             };
+
+            //Create Default Secret if confidential client.
+            if (isConfidential)
+            {
+                //TODO: Generate Secret
+            }
+
             client.RegistrationAccessToken = _tokenProvider.GenerateJwtAccessToken(client, null, Guid.NewGuid(), new[] { Scopes.ClientConfiguration });
             var created = await _clientStore.CreateClientAsync(client, cancellationToken);
             return created;
         }
 
-        private string BuildRegistrationToken(Guid clientId)
+        public Task<Client> GetClientAsync(Guid clientId, CancellationToken cancellationToken)
         {
-            return string.Empty;
+            return _clientStore.GetClientAsync(clientId, cancellationToken);
         }
 
         private void ValidateHasRedirectUrls(IEnumerable<string> redirectUrls)

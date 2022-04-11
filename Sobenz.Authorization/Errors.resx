@@ -117,7 +117,16 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="AtLeastOneRedirectionUrlRequired" xml:space="preserve">
+    <value>All clients must have at least one or more Redirection Urls defined.</value>
+  </data>
   <data name="MissingTokenRequestParameters" xml:space="preserve">
     <value>The '{0}' property is required for completing the '{1}' grant.</value>
+  </data>
+  <data name="WebClientRedirectUrlsMustBeHttps" xml:space="preserve">
+    <value>Redirection Url '{0}' is invalid for a non confidential client as it is not 'https'.</value>
+  </data>
+  <data name="WebClientRedirectUrlsMustNotBeLocalhost" xml:space="preserve">
+    <value>Redirection Url '{0}' is invalid for a non confidential client as the host is 'localhost'.</value>
   </data>
 </root>

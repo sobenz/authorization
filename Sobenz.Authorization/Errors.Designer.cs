@@ -61,11 +61,38 @@ namespace Sobenz.Authorization {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to All clients must have at least one or more Redirection Urls defined..
+        /// </summary>
+        internal static string AtLeastOneRedirectionUrlRequired {
+            get {
+                return ResourceManager.GetString("AtLeastOneRedirectionUrlRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The &apos;{0}&apos; property is required for completing the &apos;{1}&apos; grant..
         /// </summary>
         internal static string MissingTokenRequestParameters {
             get {
                 return ResourceManager.GetString("MissingTokenRequestParameters", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Redirection Url &apos;{0}&apos; is invalid for a non confidential client as it is not &apos;https&apos;..
+        /// </summary>
+        internal static string WebClientRedirectUrlsMustBeHttps {
+            get {
+                return ResourceManager.GetString("WebClientRedirectUrlsMustBeHttps", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Redirection Url &apos;{0}&apos; is invalid for a non confidential client as the host is &apos;localhost&apos;..
+        /// </summary>
+        internal static string WebClientRedirectUrlsMustNotBeLocalhost {
+            get {
+                return ResourceManager.GetString("WebClientRedirectUrlsMustNotBeLocalhost", resourceCulture);
             }
         }
     }

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Sobenz.Authorization.Helpers;
 using Sobenz.Authorization.Interfaces;
@@ -24,15 +25,25 @@ namespace Sobenz.Authorization.Controllers
 
         [HttpPost]
         [Consumes("application/json")]
-        [Authorize(SecurityHelper.PolicyNames.ClientConfigurationPolicy, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-        public Task<IActionResult> CreateClientAsync([FromBody][Required]ClientRegistrationRequest registrationRequest, CancellationToken cancellationToken = default)
+        [Authorize(SecurityHelper.PolicyNames.ClientRegistrationPolicy, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        public async Task<IActionResult> CreateClientAsync([FromBody][Required]ClientRegistrationRequest registrationRequest, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult((IActionResult)Ok());
+            var createdClient = await _clientManager.CreateClientAsync(
+                isConfidential: (registrationRequest.ApplicationType == ApplicationType.Native),
+                name: registrationRequest.ClientName,
+                redirectUrls: registrationRequest.RedirectionUrls,
+                logoUrl: registrationRequest.LogoUri,
+                contacts: registrationRequest.Contacts,
+                cancellationToken: cancellationToken);
+
+            var resourceUri = new Uri($"{UriHelper.GetEncodedUrl(Request)}/{createdClient.Id}");
+
+            return Created(resourceUri, createdClient);
         }
 
         [HttpGet]
         [Authorize(SecurityHelper.PolicyNames.ClientRegistrationPolicy, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-        public Task<IActionResult> ListClientsAsync(CancellationToken cancellationToken = default)
+        public Task<IActionResult> ListClientsAsync([FromQuery]string continuationToken = null, [FromQuery]int pageSize  = 20, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
@@ -40,9 +51,12 @@ namespace Sobenz.Authorization.Controllers
         [HttpGet]
         [Authorize(SecurityHelper.PolicyNames.ClientConfigurationPolicy, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         [Route("{clientId}")]
-        public Task<IActionResult> GetClientAsync(Guid clientId, CancellationToken cancellationToken = default)
+        public async Task<IActionResult> GetClientAsync(Guid clientId, CancellationToken cancellationToken = default)
         {
-            throw new NotImplementedException();
+            var client = await _clientManager.GetClientAsync(clientId, cancellationToken);
+            if (client == null)
+                return NotFound();
+            return Ok(client);
         }
 
         [HttpPut]

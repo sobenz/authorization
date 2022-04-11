@@ -1,8 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Sobenz.Authorization.Binders;
 using Sobenz.Authorization.Helpers;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
 
@@ -18,7 +20,7 @@ namespace Sobenz.Authorization.Models
         Native
     }
 
-    public class ClientRegistrationRequest
+    public class ClientRegistrationRequest : IValidatableObject
     {
         [Required]
         [JsonPropertyName("client_name")]
@@ -33,7 +35,7 @@ namespace Sobenz.Authorization.Models
         [Required]
         [JsonPropertyName("redirection_uris")]
         [BindProperty(Name = "redirection_uris")]
-        public IEnumerable<string> RedirectionUris { get; set; }
+        public IEnumerable<string> RedirectionUrls { get; set; }
 
         [JsonPropertyName("logo_uri")]
         [BindProperty(Name = "logo_uri")]
@@ -43,9 +45,37 @@ namespace Sobenz.Authorization.Models
         [BindProperty(Name = "contacts")]
         public IEnumerable<string> Contacts { get; set; }
 
-        [JsonPropertyName("allowed_scope")]
+        [JsonPropertyName("granted_scope")]
         [JsonConverter(typeof(SpaceDelimitedStringJsonConverter))]
-        [BindProperty(Name = "allowed_scope", BinderType = typeof(SpaceDelimitedStringArrayBinder))]
-        public string[] AllowedScopes { get; set; }
+        [BindProperty(Name = "granted_scope", BinderType = typeof(SpaceDelimitedStringArrayBinder))]
+        public string[] GrantedScopes { get; set; }
+
+        [JsonPropertyName("user_accessible_scope")]
+        [JsonConverter(typeof(SpaceDelimitedStringJsonConverter))]
+        [BindProperty(Name = "user_accessible_scope", BinderType = typeof(SpaceDelimitedStringArrayBinder))]
+        public string[] UserAccessibleScopes { get; set; }
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            List<ValidationResult> validationErrors = new List<ValidationResult>();
+            if (!RedirectionUrls.Any())
+            {
+                validationErrors.Add(new ValidationResult(Errors.AtLeastOneRedirectionUrlRequired, new[] { nameof(RedirectionUrls) }));
+            }
+            if (ApplicationType == ApplicationType.Web)
+            {
+                foreach(var url in RedirectionUrls)
+                {
+                    var uri = new Uri(url);
+                    if (!uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
+                        validationErrors.Add(new ValidationResult(string.Format(Errors.WebClientRedirectUrlsMustBeHttps, url), new[] { nameof(RedirectionUrls) }));
+#if !DEBUG
+                    if (uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase))
+                        validationErrors.Add(new ValidationResult(string.Format(Errors.WebClientRedirectUrlsMustNotBeLocalhost, url), new[] { nameof(RedirectionUrls) }));
+#endif
+                }
+            }
+            return validationErrors;
+        }
     }
 }
