@@ -6,6 +6,10 @@ namespace Sobenz.Authorization.Models
     {
         #region Auth Service Specific Scopes
         /// <summary>
+        /// This scope allows for the configuration of a the current client.
+        /// </summary>
+        public const string ClientConfiguration = "client_configuration";
+        /// <summary>
         /// This scope allows the creation of new clients. Should only be given to clients or users that should be able to do this.
         /// </summary>
         public const string ClientRegistration = "client_reg";

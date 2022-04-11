@@ -41,6 +41,7 @@ namespace Sobenz.Authorization
             //Services
             services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
             services.AddSingleton<IClientManager, IClientManager>();
+            services.AddSingleton<ITokenProvider, JwtTokenProvider>();
             services.AddSingleton<IAuthorizationManager, AuthorizationManager>();
             services.AddSingleton<PersistedTokenService>();
             services.AddSingleton<IRefreshTokenService>(x => x.GetRequiredService<PersistedTokenService>());

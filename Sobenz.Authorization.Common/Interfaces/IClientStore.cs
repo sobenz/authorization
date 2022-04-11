@@ -8,6 +8,7 @@ namespace Sobenz.Authorization.Common.Interfaces
 {
     public interface IClientStore
     {
+        Task<Client> CreateClientAsync(Client clientToCreate, CancellationToken cancellationToken = default);
         Task<Client> GetClientAsync(Guid clientId, CancellationToken cancellationToken = default);
         Task<IEnumerable<Client>> ListClientsAsync(CancellationToken cancellationToken = default);
     }

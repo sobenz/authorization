@@ -6,28 +6,9 @@ using System.Linq;
 
 namespace Sobenz.Authorization.Store.Cosmos.Models
 {
-    internal class CosmosClientModel
+    internal static class ClientModel
     {
-        public Guid Id { get; set; }
-        [JsonIgnore]
-        public DateTime Created { get; set; }
-        [JsonIgnore]
-        [JsonProperty("_ts")]
-        public long LastModifiedTimestamp { get; set; }
-        public string Name { get; set; }
-        public IEnumerable<string> Contacts { get; set; }
-        public string LogoUri { get; set; }
-        public string RegistrationAccessToken { get; set; }
-        public bool IsConfidential { get; set; }
-        public ClientState State { get; set; }
-        public IEnumerable<string> GrantedScopes { get; set; }
-        public IEnumerable<string> UserAccessibleScopes { get; set; }
-        public IEnumerable<string> RedirectionUrls { get; set; }
-        public IEnumerable<CosmosClientSecret> Secrets { get; set; }
-        public IEnumerable<string> GlobalRoles { get; set; }
-        public IDictionary<int, IEnumerable<string>> ContextualRoles { get; set; }
-
-        public static Client ToDomainModel(CosmosClientModel cosmosModel)
+        public static Client ToDomainModel(ReadClientModel cosmosModel)
         {
             if (cosmosModel == null)
                 return null;
@@ -58,13 +39,12 @@ namespace Sobenz.Authorization.Store.Cosmos.Models
             return result;
         }
 
-        public static CosmosClientModel FromDomainModel(Client client)
+        public static TCosmosModel FromDomainModel<TCosmosModel>(Client client) where TCosmosModel : CoreClientModel, new()
         {
-            var result = new CosmosClientModel
+            var result = new TCosmosModel
             {
                 Id = client.Id,
                 Name = client.Name,
-                IsConfidential = client.IsConfidential,
                 LogoUri = client.LogoUrl,
                 RedirectionUrls = client.RedirectionUrls.Select(u => u.ToString()),
                 Contacts = client.Contacts,
@@ -82,8 +62,44 @@ namespace Sobenz.Authorization.Store.Cosmos.Models
                     ActiveTo = s.ActiveTo
                 })
             };
+
+            CreateClientModel createModel = result as CreateClientModel;
+            if (createModel != null)
+            {
+                createModel.IsConfidential = client.IsConfidential;
+                createModel.Created = DateTime.UtcNow;
+            }
+
             return result;
         }
+    }
+
+    internal class CoreClientModel
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; }
+        public IEnumerable<string> Contacts { get; set; }
+        public string LogoUri { get; set; }
+        public string RegistrationAccessToken { get; set; }
+        public ClientState State { get; set; }
+        public IEnumerable<string> GrantedScopes { get; set; }
+        public IEnumerable<string> UserAccessibleScopes { get; set; }
+        public IEnumerable<string> RedirectionUrls { get; set; }
+        public IEnumerable<CosmosClientSecret> Secrets { get; set; }
+        public IEnumerable<string> GlobalRoles { get; set; }
+        public IDictionary<int, IEnumerable<string>> ContextualRoles { get; set; }
+    }
+
+    internal class CreateClientModel : CoreClientModel
+    {
+        public DateTime Created { get; set; }
+        public bool IsConfidential { get; set; }
+    }
+
+    internal class ReadClientModel : CreateClientModel
+    {
+        [JsonProperty("_ts")]
+        public long LastModifiedTimestamp { get; set; }
     }
 
     internal class CosmosClientSecret

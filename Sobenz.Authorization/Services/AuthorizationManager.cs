@@ -1,19 +1,14 @@
-﻿using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
-using Sobenz.Authorization.Abstractions.Models;
+﻿using Sobenz.Authorization.Abstractions.Models;
 using Sobenz.Authorization.Common.Interfaces;
 using Sobenz.Authorization.Common.Models;
-using Sobenz.Authorization.Helpers;
 using Sobenz.Authorization.Interfaces;
 using Sobenz.Authorization.Models;
 using System;
 using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,25 +17,16 @@ namespace Sobenz.Authorization.Services
 {
     internal class AuthorizationManager : IAuthorizationManager
     {
-        private readonly JwtSecurityTokenHandler _tokenHandler;
-        private readonly SigningCredentials _signingCredentials;
-
-        private readonly IOptions<TokenOptions> _tokenOptions;
+        private readonly ITokenProvider _tokenProvider;
         private readonly IPasswordHasher _passwordHasher;
         private readonly IClientStore _applicationService;
         private readonly IAuthorizationCodeService _authorizationCodeService;
         private readonly IRefreshTokenService _refreshTokenService;
         private readonly IUserStore _userService;
 
-        public AuthorizationManager(IOptions<TokenOptions> tokenOptions, IPasswordHasher passwordHasher, IClientStore applicationService, IAuthorizationCodeService authorizationCodeService, IRefreshTokenService refreshTokenService, IUserStore userService)
+        public AuthorizationManager(ITokenProvider tokenProvider, IPasswordHasher passwordHasher, IClientStore applicationService, IAuthorizationCodeService authorizationCodeService, IRefreshTokenService refreshTokenService, IUserStore userService)
         {
-            //TODO - Read from a cert provider.
-            var certStore = new X509Store(StoreName.My, StoreLocation.LocalMachine, OpenFlags.ReadOnly);
-            var cert = certStore.Certificates.OfType<X509Certificate2>().First(c => c.FriendlyName == "SobenzCert");
-            _signingCredentials = new X509SigningCredentials(cert, SecurityAlgorithms.RsaSha256);
-            _tokenHandler = new JwtSecurityTokenHandler();
-
-            _tokenOptions = tokenOptions ?? throw new ArgumentNullException(nameof(tokenOptions));
+            _tokenProvider = tokenProvider ?? throw new ArgumentNullException(nameof(tokenProvider));
             _passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
             _applicationService = applicationService ?? throw new ArgumentNullException(nameof(applicationService));
             _authorizationCodeService = authorizationCodeService ?? throw new ArgumentNullException(nameof(authorizationCodeService));
@@ -108,25 +94,25 @@ namespace Sobenz.Authorization.Services
             return AuthorizationOutcome<User>.Fail(new TokenResponseError(TokenFailureError.AccessDenied), HttpStatusCode.Unauthorized);
         }
 
-        public async Task<AuthorizationOutcome> GenerateApplicationAccessTokenAsync(Client application, IEnumerable<string> scopes, int? organisationId, CancellationToken cancellationToken)
+        public async Task<AuthorizationOutcome> GenerateApplicationAccessTokenAsync(Client client, IEnumerable<string> scopes, int? organisationId, CancellationToken cancellationToken)
         {
-            if (!application.IsConfidential)
+            if (!client.IsConfidential)
                 return AuthorizationOutcome.Fail(new TokenResponseError(TokenFailureError.InvalidClient, "Public clients not allowed."), HttpStatusCode.BadRequest);
 
-            if (!application.GrantedScopes.Contains(Scopes.Merchant))
+            if (!client.GrantedScopes.Contains(Scopes.Merchant))
                 return AuthorizationOutcome.Fail(new TokenResponseError(TokenFailureError.InvalidClient, "Client has not been granted correct scopes"), HttpStatusCode.Forbidden);
             
-            var refreshToken = await _refreshTokenService.CreateTokenAsync(SubjectType.Client, application.Id, application.Id, scopes, organisationId, cancellationToken);
-            var accessToken = GenerateSubjectAccessToken(application, null, organisationId, refreshToken.SessionId, scopes);
+            var refreshToken = await _refreshTokenService.CreateTokenAsync(SubjectType.Client, client.Id, client.Id, scopes, organisationId, cancellationToken);
+            var accessToken = GenerateSubjectAccessToken(client, null, organisationId, refreshToken.SessionId, scopes);
 
             int expirationSeconds = (int)TimeSpan.FromMinutes(5).TotalSeconds;
             return AuthorizationOutcome.Succeed(new TokenResponseSuccess(TokenResponseType.AccessToken, accessToken, refreshToken.Token, expirationSeconds, scopes));
         }
 
-        public async Task<AuthorizationOutcome> GenerateUserAccessTokenAsync(Client application, string authorizationCode, string codeVerifier, Uri redirectUri, IEnumerable<string> scopes, int? organisationId, CancellationToken cancellationToken)
+        public async Task<AuthorizationOutcome> GenerateUserAccessTokenAsync(Client client, string authorizationCode, string codeVerifier, Uri redirectUri, IEnumerable<string> scopes, int? organisationId, CancellationToken cancellationToken)
         {
             //TODO Check Failure Scenarios HTTP Status Codes
-            if (!application.IsConfidential && string.IsNullOrEmpty(codeVerifier))
+            if (!client.IsConfidential && string.IsNullOrEmpty(codeVerifier))
                 return AuthorizationOutcome.Fail(new TokenResponseError(TokenFailureError.InvalidClient, "Public clients must provide PKCE verifier."), HttpStatusCode.BadRequest);
 
             var code = await _authorizationCodeService.ValidateCodeAsync(authorizationCode, cancellationToken);
@@ -147,20 +133,20 @@ namespace Sobenz.Authorization.Services
                 return AuthorizationOutcome.Fail(new TokenResponseError(TokenFailureError.AccessDenied, "Authentication Failed."), HttpStatusCode.Unauthorized);
 
             var activeScopes = scopes ?? code.GrantedScopes;
-            var refreshToken = await _refreshTokenService.CreateTokenAsync(SubjectType.User, user.Id, application.Id, activeScopes, organisationId, cancellationToken);
-            var accessToken = GenerateSubjectAccessToken(user, application, organisationId, refreshToken.SessionId, activeScopes);
+            var refreshToken = await _refreshTokenService.CreateTokenAsync(SubjectType.User, user.Id, client.Id, activeScopes, organisationId, cancellationToken);
+            var accessToken = GenerateSubjectAccessToken(user, client, organisationId, refreshToken.SessionId, activeScopes);
 
             string idToken = null;
             if (activeScopes.Contains(Scopes.OpenId))
-                idToken = GenerateUserIdentityToken(user, application, code.Nonce, activeScopes);
+                idToken = _tokenProvider.GenerateJwtIdentityToken(user, client, code.Nonce, activeScopes);
 
             int expirationSeconds = (int)TimeSpan.FromMinutes(5).TotalSeconds;
             return AuthorizationOutcome.Succeed(new TokenResponseSuccess(TokenResponseType.AccessToken, accessToken, refreshToken.Token, expirationSeconds, scopes, idToken));
         }
 
-        public async Task<AuthorizationOutcome> GenerateUserAccessTokenAsync(Client application, string username, string password, IEnumerable<string> scopes, int? organisationId, CancellationToken cancellationToken)
+        public async Task<AuthorizationOutcome> GenerateUserAccessTokenAsync(Client client, string username, string password, IEnumerable<string> scopes, int? organisationId, CancellationToken cancellationToken)
         {
-            if (!application.IsConfidential)
+            if (!client.IsConfidential)
                 return AuthorizationOutcome.Fail(new TokenResponseError(TokenFailureError.InvalidClient, "Public clients not allowed with the Password grant."), HttpStatusCode.BadRequest);
 
             var getUserOpperation = await AuthenticateUserAsync(username, password, cancellationToken);
@@ -169,16 +155,16 @@ namespace Sobenz.Authorization.Services
 
             User user = getUserOpperation.Resource;
 
-            var refreshToken = _refreshTokenService.CreateTokenAsync(SubjectType.User, user.Id, application.Id, scopes, organisationId, cancellationToken).Result;
-            var accessToken = GenerateSubjectAccessToken(user, application, organisationId, refreshToken.SessionId, scopes);
+            var refreshToken = _refreshTokenService.CreateTokenAsync(SubjectType.User, user.Id, client.Id, scopes, organisationId, cancellationToken).Result;
+            var accessToken = GenerateSubjectAccessToken(user, client, organisationId, refreshToken.SessionId, scopes);
 
             int expirationSeconds = (int)TimeSpan.FromMinutes(5).TotalSeconds;
             return AuthorizationOutcome.Succeed(new TokenResponseSuccess(TokenResponseType.AccessToken, accessToken, refreshToken.Token, expirationSeconds, scopes));
         }
 
-        public async Task<AuthorizationOutcome> RefreshAccessTokenAsync(Client application, string token, IEnumerable<string> scopes, int? organisationId, CancellationToken cancellationToken)
+        public async Task<AuthorizationOutcome> RefreshAccessTokenAsync(Client client, string token, IEnumerable<string> scopes, int? organisationId, CancellationToken cancellationToken)
         {
-            var refreshToken = await _refreshTokenService.RefreshTokenAsync(token, application.Id, scopes, organisationId, cancellationToken);
+            var refreshToken = await _refreshTokenService.RefreshTokenAsync(token, client.Id, scopes, organisationId, cancellationToken);
             if (refreshToken == null)
                 return AuthorizationOutcome.Fail(new TokenResponseError(TokenFailureError.AccessDenied, "Authentication Failed."), HttpStatusCode.Unauthorized);
 
@@ -193,86 +179,24 @@ namespace Sobenz.Authorization.Services
 
                 if ((user == null) || (user.State != UserState.Active))
                     return AuthorizationOutcome.Fail(new TokenResponseError(TokenFailureError.AccessDenied, "User is not active."), HttpStatusCode.Unauthorized);
-                accessToken = GenerateSubjectAccessToken(user, application, organisationId, refreshToken.SessionId, activeScopes);
+                accessToken = GenerateSubjectAccessToken(user, client, organisationId, refreshToken.SessionId, activeScopes);
 
                 if (activeScopes.Contains(Scopes.OpenId))
-                    idToken = GenerateUserIdentityToken(user, application, string.Empty, activeScopes);
+                    idToken = _tokenProvider.GenerateJwtIdentityToken(user, client, string.Empty, activeScopes);
             }
             else
-                accessToken = GenerateSubjectAccessToken(application, null, organisationId, refreshToken.SessionId, activeScopes);
+                accessToken = GenerateSubjectAccessToken(client, null, organisationId, refreshToken.SessionId, activeScopes);
 
             int expirationSeconds = (int)TimeSpan.FromMinutes(5).TotalSeconds;
             return AuthorizationOutcome.Succeed(new TokenResponseSuccess(TokenResponseType.AccessToken, accessToken, refreshToken.Token, expirationSeconds, activeScopes, idToken));
         }
 
-        private string GenerateSubjectAccessToken(Subject subject, Client clientApplication, int? organisationId, Guid sessionId, IEnumerable<string> scopes)
+        private string GenerateSubjectAccessToken(Subject subject, Client client, int? organisationId, Guid sessionId, IEnumerable<string> scopes)
         {
-            //Default Claims
-            var claims = new List<Claim>
-            {
-                new Claim(JwtRegisteredClaimNames.Sub, subject.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Actort, subject.SubjectType.ToString()),
-                new Claim(CustomClaims.SessionId, sessionId.ToString())
-            };
-            //Add the client Id claim if provided
-            if (clientApplication != null)
-                claims.Add(new Claim(CustomClaims.ClientId, clientApplication.Id.ToString()));
+            var customClaims = organisationId.HasValue ?
+                new Claim[] { new Claim(CustomClaims.OrganisationId, organisationId.Value.ToString()) } : null;
 
-            //Contextual scope if there is one.
-            if (organisationId.HasValue)
-                claims.Add(new Claim(CustomClaims.OrganisationId, $"{organisationId}"));
-
-            //If you are asking for the merchant scope, roles associated to the subjects current context are added as claims.
-            string audience = _tokenOptions.Value.ConsumerAccessTokenAudience;
-            if (scopes != null)
-            {
-                if (scopes.Contains(Scopes.ClientRegistration))
-                {
-                    claims.Add(new Claim(CustomClaims.SecurityContext, SecurityHelper.SecurityContexts.ClientRegistration));
-                }
-                if (scopes.Contains(Scopes.Merchant))
-                {
-                    audience = _tokenOptions.Value.MerchantAccessTokenAudience;
-                    var roles = (organisationId.HasValue && subject.ContextualRoles.ContainsKey(organisationId.Value))
-                        ? subject.GlobalRoles.Union(subject.ContextualRoles[organisationId.Value])
-                        : subject.GlobalRoles;
-                    foreach (var role in roles)
-                        claims.Add(new Claim(ClaimTypes.Role, role));
-                }
-            }
-
-            TimeSpan expiration = subject.SubjectType == SubjectType.Client ? _tokenOptions.Value.ApplicationAccessTokenLifetime : _tokenOptions.Value.UserAccessTokenLifetime;
-
-            var accessToken = _tokenHandler.CreateEncodedJwt(_tokenOptions.Value.TokenIssuer, audience, new ClaimsIdentity(claims), DateTime.UtcNow, DateTime.UtcNow.Add(expiration), DateTime.UtcNow, _signingCredentials);
-            return accessToken;
-        }
-
-        private string GenerateUserIdentityToken(User user, Client app, string nonce, IEnumerable<string> scopes)
-        {
-            var claims = new List<Claim>
-            {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString())
-            };
-            if (scopes.Contains(Scopes.Profile))
-            {
-                claims.Add(new Claim(JwtRegisteredClaimNames.GivenName, user.FirstName));
-                claims.Add(new Claim(JwtRegisteredClaimNames.FamilyName, user.LastName));
-                claims.Add(new Claim(JwtRegisteredClaimNames.Birthdate, user.DateOfBirth.ToString(), ClaimValueTypes.Date));
-            }
-            if (scopes.Contains(Scopes.Email))
-            {
-                claims.Add(new Claim(JwtRegisteredClaimNames.Email, user.EmailAddress));
-                claims.Add(new Claim(CustomClaims.EmailVerified, user.EmailVerified.ToString(), ClaimValueTypes.Boolean));
-            }
-            if (!string.IsNullOrEmpty(nonce))
-            {
-                claims.Add(new Claim(JwtRegisteredClaimNames.Nonce, nonce));
-            }
-
-            TimeSpan expiration = _tokenOptions.Value.IdentityTokenLifetime;
-            string token = _tokenHandler.CreateEncodedJwt(_tokenOptions.Value.TokenIssuer, app.Id.ToString(), new ClaimsIdentity(claims), DateTime.UtcNow, DateTime.Now.Add(expiration), DateTime.UtcNow, _signingCredentials);
-
-            return token;
+            return _tokenProvider.GenerateJwtAccessToken(subject, client, sessionId, scopes, customClaims);
         }
 
         private static bool VerifyPKCE(string verifier, string challenge, CodeChallengeMethod? method)
