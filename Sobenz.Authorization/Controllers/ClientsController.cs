@@ -5,6 +5,7 @@ using Sobenz.Authorization.Helpers;
 using Sobenz.Authorization.Interfaces;
 using Sobenz.Authorization.Models;
 using System;
+using System.ComponentModel.DataAnnotations;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -24,7 +25,7 @@ namespace Sobenz.Authorization.Controllers
         [HttpPost]
         [Consumes("application/json")]
         [Authorize(SecurityHelper.PolicyNames.ClientConfigurationPolicy, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-        public Task<IActionResult> CreateClientAsync([FromBody] ClientRegistrationRequest registrationRequest, CancellationToken cancellationToken = default)
+        public Task<IActionResult> CreateClientAsync([FromBody][Required]ClientRegistrationRequest registrationRequest, CancellationToken cancellationToken = default)
         {
             return Task.FromResult((IActionResult)Ok());
         }

@@ -19,13 +19,12 @@ namespace Sobenz.Authorization.Services
 
         public ClientService(IClientStore clientStore, ITokenProvider tokenProvider, ILogger<ClientService> logger)
         {
-            //TODO Extract Token Creation into a seperate class.
             _clientStore = clientStore ?? throw new ArgumentNullException(nameof(clientStore));
             _tokenProvider = tokenProvider ?? throw new ArgumentNullException(nameof(tokenProvider));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public Task<Client> CreateClientAsync(bool isConfidential, string name, IEnumerable<string> redirectUrls, string logoUrl = null, IEnumerable<string> contacts = null, CancellationToken cancellationToken = default)
+        public async Task<Client> CreateClientAsync(bool isConfidential, string name, IEnumerable<string> redirectUrls, string logoUrl = null, IEnumerable<string> contacts = null, CancellationToken cancellationToken = default)
         {
             ValidateHasRedirectUrls(redirectUrls);
 
@@ -39,8 +38,8 @@ namespace Sobenz.Authorization.Services
                 Contacts = contacts ?? Enumerable.Empty<string>()
             };
             client.RegistrationAccessToken = _tokenProvider.GenerateJwtAccessToken(client, null, Guid.NewGuid(), new[] { Scopes.ClientConfiguration });
-            //TODO Create Client in Store
-            return null;
+            var created = await _clientStore.CreateClientAsync(client, cancellationToken);
+            return created;
         }
 
         private string BuildRegistrationToken(Guid clientId)
