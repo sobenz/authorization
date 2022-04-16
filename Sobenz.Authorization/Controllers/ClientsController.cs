@@ -34,9 +34,12 @@ namespace Sobenz.Authorization.Controllers
                 redirectUrls: registrationRequest.RedirectionUrls,
                 logoUrl: registrationRequest.LogoUri,
                 contacts: registrationRequest.Contacts,
+                grantedScopes: registrationRequest.GrantedScopes,
+                userAccessibleScopes: registrationRequest.UserAccessibleScopes,
                 cancellationToken: cancellationToken);
-
-            var resourceUri = new Uri($"{UriHelper.GetEncodedUrl(Request)}/{createdClient.Id}");
+            //TODO Handle Validation Failures
+            var resourceUri = new Uri($"{UriHelper.GetEncodedUrl(Request)}/{createdClient.Item1.Id}");
+            var clientResponse = new ClientResponse(createdClient.Item1, createdClient.Item2, resourceUri.ToString());           
 
             return Created(resourceUri, createdClient);
         }

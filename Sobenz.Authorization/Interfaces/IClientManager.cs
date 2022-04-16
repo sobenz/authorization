@@ -8,7 +8,7 @@ namespace Sobenz.Authorization.Interfaces
 {
     public interface IClientManager
     {
-        Task<Client> CreateClientAsync(bool isConfidential, string name, IEnumerable<string> redirectUrls, string logoUrl = null, IEnumerable<string> contacts = null, CancellationToken cancellationToken = default);
+        Task<Tuple<Client,string>> CreateClientAsync(bool isConfidential, string name, IEnumerable<string> redirectUrls, IEnumerable<string> grantedScopes = null, IEnumerable<string> userAccessibleScopes = null, string logoUrl = null, IEnumerable<string> contacts = null, CancellationToken cancellationToken = default);
         //Task<IEnumerable<ApplicationSummary>> ListClientsAsync(/*Id,Name,State,WhenCreated,LastUpdated*/CancellationToken cancellationToken = default);
         Task<Client> GetClientAsync(Guid clientId, CancellationToken cancellationToken);
         //void SetClientState(/*Enabled/Disabled*/);
